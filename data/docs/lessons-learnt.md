@@ -1,7 +1,8 @@
+## Lessons learnt in the project:
 ### Setup the project with `uv`
 Create venv, pyproject.toml and setup.sh \
 In the setup.sh we define the installation of the package based on backend for torch. \
-We include the
+
 ### Build the dataset
 JOSNLines files are easier to split and process in parallel (real-time, parallel processing)
 The vector db comparison: https://docs.langchain.com/oss/python/integrations/vectorstores

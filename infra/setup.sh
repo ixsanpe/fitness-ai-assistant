@@ -14,3 +14,8 @@ else
         uv sync --extra cpu
     fi
 fi
+
+# Pull the data
+echo "Pulling workout data from public repo..."
+chmod +x ./data/get_wrkout_data.sh
+./data/get_wrkout_data.sh
