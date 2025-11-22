@@ -4,7 +4,7 @@ First, I want to build my own vector db to store the data and play with embeddin
 Later stages, I would like to create a recommender system or assitant to track my training data and check how I could improve the training.
 ## what you need for developer environment
 - `pipx install uv`
-uv, ruff, docker
+#todo: ruff, docker
 ## start the project locallz
 `chmod +x infra/setup-local.sh`
 `./infra/setup-local.sh` will initialize the project with `uv` and install the correct version of `pytorch` depending on the backend. It will also retrieve the dataset to work locallz
