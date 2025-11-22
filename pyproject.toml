@@ -1,0 +1,58 @@
+[project]
+name = "fitness-ai-assistant"
+version = "0.1.0"
+description = "Project to assist fitness training"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "gradio>=5.49.1",
+    "matplotlib>=3.10.7",
+    "pymilvus[milvus-lite]>=2.6.2",
+    "pytest>=8.4.2",
+    "ruff>=0.14.2",
+    "sentence-transformers>=5.1.2",
+    "transformers>=4.57.1",
+]
+
+[project.optional-dependencies]
+cpu = [
+  "torch>=2.7.0",
+  "torchvision>=0.22.0,<0.24.0",
+]
+cu128 = [
+  "torch>=2.7.0",
+  "torchvision>=0.22.0,<0.24.0",
+]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu128" },
+  ],
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu128", extra = "cu128" },
+]
+torchvision = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu128", extra = "cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.workspace]
+members = [
+    "fitness-ai-assistant",
+]

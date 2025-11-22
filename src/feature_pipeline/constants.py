@@ -1,0 +1,1 @@
+EMBEDDINGS_OUT_DIR = "data/processed/embeddings"
