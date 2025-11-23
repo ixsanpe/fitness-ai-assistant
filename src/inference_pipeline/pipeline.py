@@ -27,9 +27,9 @@ def find_embeddings_file(embeddings_dir: Path, embedding_type: str = "sentence")
     """
     embeddings_dir.mkdir(parents=True, exist_ok=True)
     if embedding_type == "sentence":
-        pat = "*text.npy"
+        pat = "sentence*"
     elif embedding_type == "clip":
-        pat = "*clip.npy"
+        pat = "clip*"
     else:
         raise ValueError(f"Unknown embedding_type {embedding_type}")
     files = list(embeddings_dir.glob(pat))

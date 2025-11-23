@@ -22,10 +22,6 @@ def create_vector_db(config: InferenceConfig):
 
     # Load embeddings based on model type
     embedding_type = config.model.embedding_type
-    if "clip" in config.model.model_name.lower():
-        embedding_type = "clip"
-    else:
-        embedding_type = "sentence"
 
     embeddings = load_embeddings(config.paths.embeddings_dir, embedding_type)
 

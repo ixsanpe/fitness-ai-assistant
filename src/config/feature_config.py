@@ -3,7 +3,7 @@
 from enum import Enum
 from pathlib import Path
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .base import BaseConfig
 
@@ -63,15 +63,16 @@ class EmbeddingConfig(BaseModel):
         pattern="^(npy|pt|safetensors)$",
     )
 
-    @field_validator("text_weight", "image_weight")
-    @classmethod
-    def validate_weights_sum(cls, v, info):
+    @model_validator(mode="after")
+    def validate_weights_sum(cls, values):
         """Ensure text and image weights sum to 1.0 for multimodal."""
-        if "text_weight" in info.data and "image_weight" in info.data:
-            total = info.data["text_weight"] + info.data["image_weight"]
+        text_weight = values.text_weight
+        image_weight = values.image_weight
+        if text_weight is not None and image_weight is not None:
+            total = text_weight + image_weight
             if not (0.99 <= total <= 1.01):  # Allow small floating point error
                 raise ValueError("text_weight + image_weight must equal 1.0")
-        return v
+        return values
 
     @field_validator("model_name")
     @classmethod
