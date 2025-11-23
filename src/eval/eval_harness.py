@@ -1,12 +1,16 @@
 import json
+import math
+import sys
 from pathlib import Path
-from typing import List, Dict
 
-from src.inference_pipeline.pipeline_factory import create_pipeline
-from src.inference_pipeline.config import default_config, InferenceConfig
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from src.config import InferenceConfig, load_config
+from src.inference_pipeline.pipeline import InferencePipeline
 
 
-def precision_at_k(relevant: List[str], retrieved: List[str], k: int) -> float:
+def precision_at_k(relevant: list[str], retrieved: list[str], k: int) -> float:
     if k <= 0:
         return 0.0
     retrieved_k = retrieved[:k]
@@ -16,7 +20,7 @@ def precision_at_k(relevant: List[str], retrieved: List[str], k: int) -> float:
     return hits / float(k)
 
 
-def average_precision_at_k(relevant: List[str], retrieved: List[str], k: int) -> float:
+def average_precision_at_k(relevant: list[str], retrieved: list[str], k: int) -> float:
     # computes AP@k
     retrieved_k = retrieved[:k]
     score = 0.0
@@ -30,7 +34,7 @@ def average_precision_at_k(relevant: List[str], retrieved: List[str], k: int) ->
     return score / float(min(len(relevant), k))
 
 
-def mean_reciprocal_rank(relevances: List[List[int]]) -> float:
+def mean_reciprocal_rank(relevances: list[list[int]]) -> float:
     # relevances: for each query a list of binary rels in retrieved order
     rr_total = 0.0
     for rel in relevances:
@@ -43,14 +47,14 @@ def mean_reciprocal_rank(relevances: List[List[int]]) -> float:
     return rr_total / len(relevances) if relevances else 0.0
 
 
-def dcg(relevances: List[int], k: int) -> float:
+def dcg(relevances: list[int], k: int) -> float:
     dcg_v = 0.0
     for i, rel in enumerate(relevances[:k], start=1):
-        dcg_v += (2 ** rel - 1) / float(math.log2(i + 1))
+        dcg_v += (2**rel - 1) / float(math.log2(i + 1))
     return dcg_v
 
 
-def ndcg_at_k(relevant: List[str], retrieved: List[str], k: int) -> float:
+def ndcg_at_k(relevant: list[str], retrieved: list[str], k: int) -> float:
     # treat relevance as binary
     rels = [1 if r in set(relevant) else 0 for r in retrieved[:k]]
     if not any(rels):
@@ -67,10 +71,7 @@ def ndcg_at_k(relevant: List[str], retrieved: List[str], k: int) -> float:
     return dcg_v / idcg_v if idcg_v > 0 else 0.0
 
 
-import math
-
-
-def load_testset(path: Path) -> List[Dict]:
+def load_testset(path: Path) -> list[dict]:
     items = []
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
@@ -81,7 +82,7 @@ def load_testset(path: Path) -> List[Dict]:
     return items
 
 
-def evaluate(testset_path: str, cfg: InferenceConfig = None, top_k: int = 5) -> Dict:
+def evaluate(testset_path: str, config: InferenceConfig = None, top_k: int = 5) -> dict:
     """Run evaluation on a JSONL testset.
 
     Testset format (per-line JSON):
@@ -89,9 +90,10 @@ def evaluate(testset_path: str, cfg: InferenceConfig = None, top_k: int = 5) -> 
 
     Returns a dict of aggregate metrics.
     """
-    if cfg is None:
-        cfg = default_config()
-    pipe = create_pipeline(cfg)
+    if config is None:
+        config = load_config("inference", "configs/inference.yaml")
+
+    pipe = InferencePipeline(config)
 
     path = Path(testset_path)
     if not path.exists():
@@ -137,12 +139,23 @@ def evaluate(testset_path: str, cfg: InferenceConfig = None, top_k: int = 5) -> 
 if __name__ == "__main__":
     import argparse
 
-    p = argparse.ArgumentParser()
-    p.add_argument("--testset", default="data/eval/test_queries.jsonl")
-    p.add_argument("--top_k", type=int, default=5)
-    p.add_argument("--backend", choices=["local", "milvus"], default="local")
+    p = argparse.ArgumentParser(description="Evaluate inference pipeline on test queries")
+    p.add_argument(
+        "--testset", default="data/eval/test_queries.jsonl", help="Path to test queries JSONL"
+    )
+    p.add_argument("--top_k", type=int, default=5, help="Number of results to retrieve")
+    p.add_argument(
+        "--config", type=str, default="configs/inference.yaml", help="Path to inference config file"
+    )
     args = p.parse_args()
-    cfg = default_config()
-    cfg.backend = args.backend
-    metrics = evaluate(args.testset, cfg=cfg, top_k=args.top_k)
+
+    config = load_config("inference", args.config)
+    metrics = evaluate(args.testset, config=config, top_k=args.top_k)
+
+    print("\n📊 Evaluation Results:")
     print(json.dumps(metrics, indent=2))
+
+# Usage:
+# python src/eval/eval_harness.py --testset data/eval/test_queries.jsonl --top_k 5
+# python src/eval/eval_harness.py --config configs/inference.yaml
+# python src/eval/eval_harness.py --config configs/inference_prod.yaml --top_k 10
