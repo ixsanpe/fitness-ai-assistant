@@ -1,0 +1,79 @@
+# Feature Pipeline Configuration
+# This config is used for data processing and embedding generation
+
+name: "feature_pipeline_sentence"
+version: "0.1.0"
+environment: "development"
+seed: 42
+log_level: "info"
+
+# Device configuration
+device:
+  device: "auto"  # Options: cpu, cuda, mps, auto
+  gpu_id: null
+  mixed_precision: false
+
+# Path configuration
+paths:
+  project_root: "."
+  data_dir: "data"
+  raw_data_dir: "data/raw"
+  processed_data_dir: "data/processed"
+  embeddings_dir: "data/processed/embeddings"
+  models_dir: "models"
+  results_dir: "results"
+
+# Embedding configuration
+embedding:
+  embedding_type: "sentence"  # Options: sentence, clip, clip_text, clip_image, custom
+  model_name: "all-MiniLM-L6-v2"  # For CLIP: "openai/clip-vit-base-patch32"
+  batch_size: 64
+  max_length: null
+  normalize: true
+
+  # CLIP-specific settings (only used when embedding_type is clip)
+  image_processing_mode: "first"  # Options: first, average, concatenate, max_pool
+  text_weight: 0.5
+  image_weight: 0.5
+
+  # Output settings
+  output_prefix: "sentence"
+  save_format: "npy"  # Options: npy, pt, safetensors
+
+# Dataset configuration
+dataset:
+  input_path: "data/raw/exercises"
+  output_path: "data/processed/exercises_dataset.jsonl"
+
+  # Text processing
+  text_fields:
+    - "name"
+    - "description"
+    - "instructions"
+  text_separator: " "
+  clean_text: true
+
+  # Image processing
+  include_images: true
+  image_extensions:
+    - ".jpg"
+    - ".jpeg"
+    - ".png"
+    - ".gif"
+  max_images_per_item: null
+
+  # Filtering
+  min_text_length: 10
+  remove_duplicates: true
+
+  # Performance
+  num_workers: 4
+
+# Pipeline control
+skip_if_exists: true
+overwrite: false
+validate_outputs: true
+
+# Caching
+cache_embeddings: true
+cache_dir: null

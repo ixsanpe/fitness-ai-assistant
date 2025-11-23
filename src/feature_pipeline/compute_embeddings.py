@@ -1,140 +1,304 @@
-from transformers import CLIPProcessor, CLIPModel
-from sentence_transformers import SentenceTransformer
-import torch
-import json
-import os
 import argparse
-import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
-import numpy as np
+import json
+import sys
 from pathlib import Path
-from transformers import CLIPProcessor
-import tqdm
 
-EMBEDDINGS_OUT_PATH = Path("data/processed/embeddings")
-DEBUG = False
+import numpy as np
+import torch
+import tqdm
+from sentence_transformers import SentenceTransformer
+from transformers import CLIPModel, CLIPProcessor
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from src.config import FeatureConfig, load_config
+
+# TODO: Use more constants (ie, embeding, dataset organiz)
+
 
 def load_dataset(path):
-    items=[]
-    with open(path, "r", encoding="utf-8") as f:
+    """Load dataset from JSONL file."""
+    items = []
+    with open(path, encoding="utf-8") as f:
         for line in f:
             items.append(json.loads(line))
+    print(f"Loaded {len(items)} items from {path}")
     return items
 
-def load_embeddings(type: str):
-    if type == "sentence":
-        flag = "*text.npy"
-    elif type == "clip":
-        flag = "*clip.npy"
+
+def load_embeddings(embeddings_dir: Path, embedding_type: str):
+    """Load existing embeddings if they exist."""
+    if embedding_type == "sentence":
+        flag = "sentence*"
+    elif embedding_type == "clip":
+        flag = "clip*"
     else:
-        raise ValueError(f"Unknown embedding type: {type}")
-    existing = list(EMBEDDINGS_OUT_PATH.glob(flag))
+        raise ValueError(f"Unknown embedding type: {embedding_type}")
+
+    existing = list(embeddings_dir.glob(flag))
     if existing:
-        text_path = existing[0]
-        print(f"Found embeddings file: {text_path}")
-        return torch.tensor(np.load(str(text_path)))
+        emb_path = existing[0]
+        print(f"Found existing embeddings: {emb_path}")
+        return torch.tensor(np.load(str(emb_path)))
+    return None
 
-def compute_sentence_embeddings(items, out_prefix, device, model_name="all-MiniLM-L6-v2", batch=64) -> torch.Tensor:
-    # Ensure out_prefix
-    if not out_prefix:
-        out_prefix = "default"
 
-    # Ensure output directory exists
-    EMBEDDINGS_OUT_PATH.mkdir(parents=True, exist_ok=True)
+class EmbeddingGenerator:
+    """Base class for generating embeddings from dataset items."""
 
-    # Look for any existing embeddings file ending with "text.npy"
-    existing = list(EMBEDDINGS_OUT_PATH.glob("*text.npy"))
-    embeddings = load_embeddings("sentence")
-    if embeddings is not None:
-        return embeddings
+    def __init__(self, config: FeatureConfig, device: str):
+        """Initialize the embedding generator.
 
-    model = SentenceTransformer(model_name, device=device)
-    texts = [it.get("combined_text","") for it in items]
-    embeddings = model.encode(texts, batch_size=batch, show_progress_bar=True, convert_to_tensor=True)
-
-    # Save embeddings
-    text_path = EMBEDDINGS_OUT_PATH / f"{out_prefix}_text.npy"
-    np.save(str(text_path), embeddings.cpu().numpy())
-    print(f"Embeddings saved to {text_path}")
-    return embeddings
-
-def compute_clip_embeddings(items, out_prefix, device, model_name="openai/clip-vit-base-patch32") -> torch.Tensor:
-    
-    # Look for any existing embeddings file ending with "clip.npy"
-    embeddings = load_embeddings("clip")
-    if embeddings is not None:
-        return embeddings
-
-    # Compute clip embeddings
-    model = CLIPModel.from_pretrained(model_name).to(device)
-    max_position_embeddings = model.config.text_config.max_position_embeddings
-    print("Max position embeddings:", max_position_embeddings)
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    print(vars(processor))         # instance attributes (if available)
-    """
-    This is a CLIPProcessor class from the transformers library. Its arguments include:
-    - CLIPImageProcessor
-    - CLIPTokenizerFast
-    """
-    text_embeddings = []
-    image_embeddings = []
-    for it in tqdm(items):
-        text = it.get("combined_text","")
-        images = it.get("image_paths",[])
-        # Process text
-        text_input = processor(text=[text], return_tensors="pt", padding=True, truncation=True).to(device)
+        Args:
+            config: Feature configuration
+            device: Device to use (cpu, cuda, etc.)
         """
-        This is a BatchFeature class from the transformer library with these keys:
-        - input_ids
-        - attention_mask
+        self.config = config
+        self.device = device
+        self.embeddings_dir = config.paths.embeddings_dir
+        self.embeddings_dir.mkdir(parents=True, exist_ok=True)
+
+    def load_existing(self) -> torch.Tensor | None:
+        """Load existing embeddings if available and configured to skip.
+
+        Returns:
+            Tensor of embeddings if found and should be reused, None otherwise
         """
-        if DEBUG:
-            print("Processing text:", text_input.data["input_ids"].shape, text_input.data["attention_mask"].shape)
-            raise Exception("Debugging")
-        with torch.no_grad():
-            text_emb = model.get_text_features(**text_input)
-        text_embeddings.append(text_emb.cpu())
-        # Process images
-        img_embs = []
-        for img_path in images:
-            image_input = processor(images=[img_path], return_tensors="pt").to(device)
-            with torch.no_grad():
-                img_emb = model.get_image_features(**image_input)
-            img_embs.append(img_emb.cpu())
-        if img_embs:
-            image_embeddings.append(torch.mean(torch.stack(img_embs), dim=0))
+        if self.config.skip_if_exists and not self.config.overwrite:
+            embeddings = load_embeddings(self.embeddings_dir, self.config.embedding.embedding_type)
+            if embeddings is not None:
+                print("Using existing embeddings (skip_if_exists=True)")
+                return embeddings
+        return None
+
+    def compute(self, items: list[dict]) -> torch.Tensor:
+        """Compute embeddings based on configured type.
+
+        Args:
+            items: List of dataset items
+
+        Returns:
+            Tensor of embeddings
+
+        Raises:
+            ValueError: If embedding type is unknown
+        """
+        # Check for existing embeddings first
+        existing = self.load_existing()
+        if existing is not None:
+            return existing
+
+        # Compute new embeddings based on type
+        if self.config.embedding.embedding_type == "sentence":
+            return self._compute_sentence(items)
+        elif self.config.embedding.embedding_type == "clip":
+            return self._compute_clip(items)
         else:
-            image_embeddings.append(torch.zeros((1, model.config.projection_dim)))
-    text_embeddings = torch.cat(text_embeddings, dim=0)
-    image_embeddings = torch.cat(image_embeddings, dim=0)
-    combined_embeddings = torch.cat([text_embeddings, image_embeddings], dim=1)
-    # Save embeddings
-    path = EMBEDDINGS_OUT_PATH / f"{out_prefix}_clip.npy"
-    np.save(str(path), combined_embeddings.cpu().numpy())
-    return combined_embeddings
+            raise ValueError(f"Unknown embedding type: {self.config.embedding.embedding_type}")
+
+    def _compute_sentence(self, items: list[dict]) -> torch.Tensor:
+        """Compute sentence embeddings using SentenceTransformer.
+
+        Args:
+            items: List of dataset items
+
+        Returns:
+            Tensor of sentence embeddings
+        """
+        print(f"Computing sentence embeddings with model: {self.config.embedding.model_name}")
+        model = SentenceTransformer(self.config.embedding.model_name, device=self.device)
+        texts = [it.get("combined_text", "") for it in items]
+
+        embeddings = model.encode(
+            texts,
+            batch_size=self.config.embedding.batch_size,
+            show_progress_bar=True,
+            convert_to_tensor=True,
+            normalize_embeddings=self.config.embedding.normalize,
+        )
+
+        self._save_embeddings(embeddings, suffix="embed")
+        return embeddings
+
+    def _compute_clip(self, items: list[dict]) -> torch.Tensor:
+        """Compute CLIP embeddings (text + image).
+
+        Args:
+            items: List of dataset items
+
+        Returns:
+            Tensor of combined CLIP embeddings
+        """
+        print(f"Computing CLIP embeddings with model: {self.config.embedding.model_name}")
+        model = CLIPModel.from_pretrained(self.config.embedding.model_name).to(self.device)
+        processor = CLIPProcessor.from_pretrained(self.config.embedding.model_name)
+
+        max_length = (
+            self.config.embedding.max_length or model.config.text_config.max_position_embeddings
+        )
+        print(f"Max sequence length: {max_length}")
+
+        text_embeddings = []
+        image_embeddings = []
+
+        for it in tqdm.tqdm(items, desc="Computing CLIP embeddings"):
+            text = it.get("combined_text", "")
+            images = it.get("image_paths", [])
+
+            # Process text
+            text_input = processor(
+                text=[text],
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=max_length,
+            ).to(self.device)
+
+            with torch.no_grad():
+                text_emb = model.get_text_features(**text_input)
+            text_embeddings.append(text_emb.cpu())
+
+            # Process images
+            img_emb = self._process_images(images, processor, model)
+            image_embeddings.append(img_emb)
+
+        text_embeddings = torch.cat(text_embeddings, dim=0)
+        image_embeddings = torch.cat(image_embeddings, dim=0)
+
+        # Combine embeddings with weights
+        combined_embeddings = self._combine_embeddings(text_embeddings, image_embeddings)
+
+        self._save_embeddings(combined_embeddings, suffix="embed")
+        return combined_embeddings
+
+    def _process_images(
+        self, images: list[str], processor: CLIPProcessor, model: CLIPModel
+    ) -> torch.Tensor:
+        """Process images and aggregate embeddings.
+
+        Args:
+            images: List of image paths
+            processor: CLIP processor
+            model: CLIP model
+
+        Returns:
+            Aggregated image embedding tensor
+        """
+        img_embs = []
+        max_images = self.config.dataset.max_images_per_item
+
+        for img_path in images[:max_images] if max_images else images:
+            try:
+                image_input = processor(images=[img_path], return_tensors="pt").to(self.device)
+                with torch.no_grad():
+                    img_emb = model.get_image_features(**image_input)
+                img_embs.append(img_emb.cpu())
+            except Exception as e:
+                print(f"Error processing image {img_path}: {e}")
+                continue
+
+        # Aggregate based on configured mode
+        if img_embs:
+            img_stack = torch.stack(img_embs)
+            mode = self.config.embedding.image_processing_mode
+
+            if mode == "average":
+                return torch.mean(img_stack, dim=0)
+            elif mode == "first":
+                return img_embs[0]
+            elif mode == "max_pool":
+                return torch.max(img_stack, dim=0)[0]
+            else:
+                return torch.mean(img_stack, dim=0)
+        else:
+            # Return zero embedding if no images
+            return torch.zeros((1, model.config.projection_dim))
+
+    def _combine_embeddings(
+        self, text_embeddings: torch.Tensor, image_embeddings: torch.Tensor
+    ) -> torch.Tensor:
+        """Combine text and image embeddings with configured weights.
+
+        Args:
+            text_embeddings: Tensor of text embeddings
+            image_embeddings: Tensor of image embeddings
+
+        Returns:
+            Combined embedding tensor
+        """
+        text_weight = self.config.embedding.text_weight
+        image_weight = self.config.embedding.image_weight
+
+        combined = torch.cat(
+            [text_embeddings * text_weight, image_embeddings * image_weight], dim=1
+        )
+
+        if self.config.embedding.normalize:
+            combined = torch.nn.functional.normalize(combined, p=2, dim=1)
+
+        return combined
+
+    def _save_embeddings(self, embeddings: torch.Tensor, suffix: str):
+        """Save embeddings to disk.
+
+        Args:
+            embeddings: Tensor of embeddings to save
+            suffix: Suffix for the filename (e.g., 'text', 'clip')
+        """
+        output_prefix = self.config.embedding.output_prefix
+        save_format = self.config.embedding.save_format
+
+        if save_format == "npy":
+            output_path = self.embeddings_dir / f"{output_prefix}_{suffix}.npy"
+            np.save(str(output_path), embeddings.cpu().numpy())
+        elif save_format == "pt":
+            output_path = self.embeddings_dir / f"{output_prefix}_{suffix}.pt"
+            torch.save(embeddings, output_path)
+        else:
+            raise ValueError(f"Unsupported save format: {save_format}")
+
+        print(f"Embeddings saved to {output_path}")
+
 
 def main(args):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
+    """Main function to compute embeddings."""
+    # Load configuration
+    config: FeatureConfig = load_config("feature", args.config)
 
-    items = load_dataset(args.dataset_path)
-
-    if args.embed_tool == "sentence":
-        embeddings = compute_sentence_embeddings(items, args.out_prefix, device)
-        print("Text embeddings computed:", embeddings.shape)
-    elif args.embed_tool == "clip":
-        embeddings = compute_clip_embeddings(items, args.out_prefix, device)
-        print("CLIP embeddings computed:", embeddings.shape)
+    # Determine device
+    if config.device.device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
-        raise ValueError(f"Unknown embed_tool: {args.embed_tool}")
+        device = config.device.device
+
+    print(f"Using device: {device}")
+    print(f"Embedding type: {config.embedding.embedding_type}")
+    print(f"Model: {config.embedding.model_name}")
+
+    # Load dataset
+    dataset_path = args.dataset_path or config.dataset.output_path
+    items = load_dataset(dataset_path)
+
+    # Ensure output directory exists
+    config.ensure_directories()
+
+    # Create embedding generator and compute embeddings
+    generator = EmbeddingGenerator(config, device)
+    embeddings = generator.compute(items)
+
+    print(f"Embeddings computed: {embeddings.shape}")
+    print("✅ Embedding computation completed successfully!")
+
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument("--dataset_path", required=True)
-    p.add_argument("--embed_tool", default="sentence")  # or "clip"
-    p.add_argument("--out_prefix", default=None)
+    p = argparse.ArgumentParser(description="Compute embeddings for exercise dataset")
+    p.add_argument("--config", type=str, default=None, help="Path to config file")
+    p.add_argument("--dataset_path", type=str, default=None, help="Override dataset path")
     args = p.parse_args()
     main(args)
 
-# python src/data/compute_embeddings.py --dataset_path data/processed/exercises_dataset.jsonl --embed_tool "sentence" --out_prefix "sentence"
-# python src/data/compute_embeddings.py --dataset_path data/processed/exercises_dataset.jsonl --embed_tool "clip" --out_prefix "clip"
+# Usage examples:
+# python src/feature_pipeline/compute_embeddings.py --config configs/feature_sentence.yaml
+# python src/feature_pipeline/compute_embeddings.py --config configs/feature_clip.yaml
+# python src/feature_pipeline/compute_embeddings.py --config configs/feature.yaml --dataset_path data/processed/custom_dataset.jsonl

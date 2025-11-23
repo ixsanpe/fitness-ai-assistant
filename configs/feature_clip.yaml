@@ -1,0 +1,65 @@
+# Feature Pipeline Configuration - CLIP Embeddings
+# This config uses CLIP for multimodal embeddings
+
+name: "feature_pipeline_clip"
+version: "0.1.0"
+environment: "development"
+seed: 42
+log_level: "info"
+
+device:
+  device: "auto"
+  gpu_id: null
+  mixed_precision: false
+
+paths:
+  project_root: "."
+  data_dir: "data"
+  raw_data_dir: "data/raw"
+  processed_data_dir: "data/processed"
+  embeddings_dir: "data/processed/embeddings"
+  models_dir: "models"
+  results_dir: "results"
+
+# CLIP embedding configuration
+embedding:
+  embedding_type: "clip"
+  model_name: "openai/clip-vit-base-patch32"
+  batch_size: 32
+  max_length: 77
+  normalize: true
+
+  # CLIP multimodal settings
+  image_processing_mode: "average"
+  text_weight: 0.6
+  image_weight: 0.4
+
+  output_prefix: "clip"
+  save_format: "npy"
+
+dataset:
+  input_path: "data/raw/exercises"
+  output_path: "data/processed/exercises_dataset.jsonl"
+
+  text_fields:
+    - "name"
+    - "description"
+    - "instructions"
+  text_separator: " "
+  clean_text: true
+
+  include_images: true
+  image_extensions:
+    - ".jpg"
+    - ".jpeg"
+    - ".png"
+  max_images_per_item: 5
+
+  min_text_length: 10
+  remove_duplicates: true
+  num_workers: 4
+
+skip_if_exists: true
+overwrite: false
+validate_outputs: true
+cache_embeddings: true
