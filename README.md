@@ -105,6 +105,17 @@ python -m src.feature_pipeline --config configs/feature_clip.yaml --sample_limit
 python -m src.inference_pipeline --query "push up" --top_k 5
 ```
 
+### Run MLflow Experiments
+```bash
+# Compare multiple embedding models
+python src/training_pipeline/mlflow_experiments.py \
+  --mode compare \
+  --configs configs/feature_sentence.yaml configs/feature_clip.yaml
+
+# View results
+mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db --port 5000
+```
+
 ### Launch Interactive Interface
 
 ```bash
