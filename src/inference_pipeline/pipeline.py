@@ -179,7 +179,7 @@ class InferencePipeline:
         """Search Milvus collection and return results translated to our result format."""
         # ensure query vector is python list
         vec = q.astype(np.float32).tolist()
-        print(f"🔍 Querying Milvus with vector (len={len(vec)}, first 5 vals={vec[:5]})")
+        print(f"Querying Milvus with vector (len={len(vec)}, first 5 vals={vec[:5]})")
 
         # build search params — for cosine we use COSINE on normalized vectors
         search_params = {"metric_type": self.config.vector_db.metric_type.upper(), "params": {}}
@@ -196,7 +196,7 @@ class InferencePipeline:
             )
         except TypeError:
             # some pymilvus versions name the arg `param` differently; try without named args
-            print("⚠️  TypeError encountered, trying alternative search call...")
+            print("TypeError encountered, trying alternative search call...")
             hits = self.milvus_client.search(
                 [vec],
                 self.milvus_vector_field,
@@ -269,7 +269,7 @@ if __name__ == "__main__":
             if r.get("combined_text"):
                 print(f"   {r['combined_text'][:200]}...\n")
     except Exception as e:
-        print(f"❌ Error running pipeline: {e}")
+        print(f"Error running pipeline: {e}")
         import traceback
 
         traceback.print_exc()

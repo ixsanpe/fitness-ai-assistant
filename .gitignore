@@ -211,3 +211,7 @@ data/raw/
 data/processed/
 data/eval/
 *.db
+
+# Experiments
+mlruns/*
+*.ipynb

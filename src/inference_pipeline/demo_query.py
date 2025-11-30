@@ -28,7 +28,7 @@ def demo(query: str = "sit up", top_k: int = 5, config_path: str = None):
         pipe = InferencePipeline(config)
         print("✅ Pipeline initialized successfully")
     except Exception as e:
-        print(f"❌ Failed to initialize pipeline: {e}")
+        print(f"Failed to initialize pipeline: {e}")
         import traceback
 
         traceback.print_exc()
