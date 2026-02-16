@@ -8,40 +8,44 @@ import pytest
 from src.config import load_config
 
 
-class TestDemoQuery:
-    """Test demo_query.py functionality."""
+class TestInferencePipeline:
+    """Test inference pipeline functionality."""
 
-    def test_demo_query_loads_config(self):
-        """Test demo_query can load config."""
-        from src.inference_pipeline.demo_query import demo
+    def test_pipeline_loads_config(self):
+        """Test pipeline can load config."""
+        from src.inference_pipeline.pipeline import InferencePipeline
 
-        # Mock InferencePipeline to avoid actual initialization
-        with patch("src.inference_pipeline.demo_query.InferencePipeline") as mock_pipe:
+        # Mock Milvus backend initialization to avoid actual DB connection
+        with patch("src.inference_pipeline.pipeline.MilvusBackend") as mock_backend:
             mock_instance = MagicMock()
-            mock_instance.query.return_value = []
-            mock_pipe.return_value = mock_instance
+            mock_backend.return_value = mock_instance
 
             # Should load config without error
-            demo(query="test", top_k=5, config_path="configs/inference.yaml")
+            config = load_config("inference", "configs/inference.yaml")
+            pipeline = InferencePipeline(config)
 
-            # Verify pipeline was initialized with config
-            assert mock_pipe.called
+            # Verify backend was initialized
+            assert mock_backend.called
+            pipeline.close()
 
-    def test_demo_query_with_prod_config(self):
-        """Test demo_query with production config."""
-        from src.inference_pipeline.demo_query import demo
+    def test_pipeline_query_interface(self):
+        """Test pipeline query returns expected format."""
+        from src.inference_pipeline.pipeline import InferencePipeline
 
-        with patch("src.inference_pipeline.demo_query.InferencePipeline") as mock_pipe:
+        with patch("src.inference_pipeline.pipeline.LocalBackend") as mock_backend:
             mock_instance = MagicMock()
-            mock_instance.query.return_value = [
+            mock_instance.search.return_value = [
                 {"id": "ex1", "score": 0.95, "combined_text": "Test exercise"}
             ]
-            mock_pipe.return_value = mock_instance
+            mock_backend.return_value = mock_instance
 
-            # Should work with prod config
-            demo(query="test", top_k=5, config_path="configs/inference_prod.yaml")
+            config = load_config("inference", "configs/inference.yaml")
+            pipeline = InferencePipeline(config)
+            results = pipeline.query("test", top_k=5)
 
-            assert mock_pipe.called
+            assert isinstance(results, list)
+            assert len(results) > 0
+            pipeline.close()
 
 
 class TestConfigIntegration:
@@ -64,7 +68,6 @@ class TestConfigIntegration:
             load_config("feature", "configs/feature_sentence.yaml"),
             load_config("feature", "configs/feature_clip.yaml"),
             load_config("inference", "configs/inference.yaml"),
-            load_config("inference", "configs/inference_prod.yaml"),
         ]
 
         # All should have project_root

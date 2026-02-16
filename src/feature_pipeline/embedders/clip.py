@@ -33,7 +33,7 @@ class CLIPEmbedder(BaseEmbedder):
             images = it.get("image_paths", [])
 
             # Process text
-            text_input = processor.tokenizer( # type: ignore
+            text_input = processor.tokenizer(  # type: ignore
                 [text],
                 return_tensors="pt",
                 padding=True,
@@ -71,7 +71,7 @@ class CLIPEmbedder(BaseEmbedder):
         for img_path in images:
             try:
                 img = Image.open(img_path).convert("RGB")
-                image_input = processor(images=[img], return_tensors="pt") # type: ignore
+                image_input = processor(images=[img], return_tensors="pt")  # type: ignore
                 image_input = {k: v.to(self.device) for k, v in image_input.items()}
                 with torch.no_grad():
                     img_emb = model.get_image_features(**image_input)

@@ -99,7 +99,9 @@ class ConfigLoader:
     def auto_load(cls, config_type: str, config_path: str | Path) -> BaseConfig:
         """Auto-load configuration based on type."""
         if config_type not in cls.CONFIG_REGISTRY:
-            raise ValueError(f"Unknown config type: {config_type}. Available: {list(cls.CONFIG_REGISTRY.keys())}")
+            raise ValueError(
+                f"Unknown config type: {config_type}. Available: {list(cls.CONFIG_REGISTRY.keys())}"
+            )
 
         config_class = cls.CONFIG_REGISTRY[config_type]
         path = Path(config_path)

@@ -73,7 +73,9 @@ def load_embeddings(embeddings_dir: Path, embedding_type: str = "sentence") -> n
 
     # Validate file format
     if path.suffix not in SUPPORTED_FORMATS:
-        raise ValueError(f"Unsupported embeddings format: {path.suffix}. Supported: {SUPPORTED_FORMATS}")
+        raise ValueError(
+            f"Unsupported embeddings format: {path.suffix}. Supported: {SUPPORTED_FORMATS}"
+        )
 
     # Load based on format
     try:

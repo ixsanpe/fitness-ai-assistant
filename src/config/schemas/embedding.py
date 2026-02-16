@@ -15,7 +15,9 @@ class EmbeddingType(str, Enum):
 class EmbeddingConfig(BaseModel):
     """Embedding generation configuration."""
 
-    embedding_type: EmbeddingType = Field(default=EmbeddingType.SENTENCE, description="Embedding type")
+    embedding_type: EmbeddingType = Field(
+        default=EmbeddingType.SENTENCE, description="Embedding type"
+    )
     model_name: str = Field(default="all-MiniLM-L6-v2", description="Model name or path")
     batch_size: int = Field(default=64, description="Batch size", ge=1, le=512)
     max_length: int | None = Field(
@@ -29,7 +31,7 @@ class EmbeddingConfig(BaseModel):
     image_processing_mode: str = Field(
         default="average",
         description="Image processing mode for CLIP",
-        pattern="^(average|first|max_pools)$"
+        pattern="^(average|first|max_pools)$",
     )
     text_weight: float = Field(default=0.5, description="Weight for text embeddings in CLIP")
     image_weight: float = Field(default=0.5, description="Weight for image embeddings in CLIP")

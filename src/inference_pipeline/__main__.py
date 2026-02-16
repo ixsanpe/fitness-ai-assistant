@@ -4,6 +4,7 @@ Usage:
     python -m src.inference_pipeline --query "push up" --top_k 5
     python -m src.inference_pipeline "sit up" --config configs/inference.yaml
 """
+
 import argparse
 
 from src.config import InferenceConfig, load_config
@@ -15,14 +16,18 @@ def main():
     parser = argparse.ArgumentParser(description="Query the inference pipeline")
     parser.add_argument("--query", nargs="+", help="Query text")
     parser.add_argument("--top_k", type=int, default=5, help="Number of results")
-    parser.add_argument("--config", type=str, default="configs/inference.yaml", help="Path to config file")
+    parser.add_argument(
+        "--config", type=str, default="configs/inference.yaml", help="Path to config file"
+    )
     args = parser.parse_args()
 
     query_text = " ".join(args.query)
 
     try:
         config = load_config("inference", args.config)
-        assert isinstance(config, InferenceConfig), "Loaded config is not an InferenceConfig instance"
+        assert isinstance(
+            config, InferenceConfig
+        ), "Loaded config is not an InferenceConfig instance"
         print(f"✅ Loaded config: {config.name}")
 
         pipeline = InferencePipeline(config)

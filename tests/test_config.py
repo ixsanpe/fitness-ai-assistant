@@ -100,10 +100,9 @@ class TestConfigEnums:
 
     def test_valid_backend_types(self):
         """Test all valid backend types."""
-        from src.config.inference_config import VectorDBBackend
+        from src.config.schemas.vector_db import VectorDBBackend
 
         assert VectorDBBackend.LOCAL == "local"
-        assert VectorDBBackend.MILVUS == "milvus"
         assert VectorDBBackend.MILVUS_LITE == "milvus_lite"
 
 

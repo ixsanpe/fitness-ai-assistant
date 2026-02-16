@@ -50,12 +50,12 @@ A multimodal AI system for exercise data with embeddings and semantic search. Th
   - `loaders/` - Exercise data loading from raw directories
   - `embedders/` - CLIP and sentence transformer embedders
   - `storage/` - Embedding persistence layer
-  
+
 - **`src/inference_pipeline/`** - Query processing and vector search
   - `__main__.py` - CLI entry point for text queries
   - `create_db.py` - Build Milvus Lite vector database
   - `gradio_app.py` - Interactive web interface
-  
+
 - **`src/training_pipeline/`** - Model training (future expansion)
 
 - **`configs/`** - Configuration files for different pipelines

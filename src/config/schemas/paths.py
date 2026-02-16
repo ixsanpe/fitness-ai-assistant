@@ -12,7 +12,9 @@ class PathConfig(BaseModel):
     data_dir: Path = Field(default=Path("data"), description="Data directory")
     raw_data_dir: Path = Field(default=Path("data/raw"), description="Raw data")
     processed_data_dir: Path = Field(default=Path("data/processed"), description="Processed data")
-    embeddings_dir: Path = Field(default=Path("data/processed/embeddings"), description="Embeddings")
+    embeddings_dir: Path = Field(
+        default=Path("data/processed/embeddings"), description="Embeddings"
+    )
     models_dir: Path = Field(default=Path("models"), description="Models")
     results_dir: Path = Field(default=Path("results"), description="Results")
 

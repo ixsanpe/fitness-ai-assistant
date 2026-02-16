@@ -97,7 +97,7 @@ class ExerciseLoader(BaseLoader):
                 if combined_text in seen_texts:
                     skipped_count["duplicate"] += 1
                     continue
-                seen_texts.add(combined_text) # type: ignore
+                seen_texts.add(combined_text)  # type: ignore
 
             items.append(item)
 

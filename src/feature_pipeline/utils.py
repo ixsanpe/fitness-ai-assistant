@@ -41,6 +41,7 @@ def save_embeddings(embeddings: torch.Tensor, output_path: Path, save_format: st
 
 def combine_text_fields(attributes: dict, fields: list[str]) -> str:
     """Combine text fields into a single string."""
+
     def _val_to_text(v):
         if v is None:
             return ""

@@ -149,7 +149,7 @@ def run_search(
         # append muscle info to caption if available
         if muscles:
             try:
-                if isinstance(muscles, (list, tuple)):
+                if isinstance(muscles, list | tuple):
                     muscles_str = ", ".join(muscles)
                 else:
                     muscles_str = str(muscles)

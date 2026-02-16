@@ -11,9 +11,7 @@ from src.config.schemas import ModelConfig, VectorDBConfig
 class InferenceConfig(BaseConfig):
     """Configuration for inference pipeline."""
 
-    model: ModelConfig = Field(
-        default_factory=ModelConfig, description="Model configuration"
-    )
+    model: ModelConfig = Field(default_factory=ModelConfig, description="Model configuration")
     vector_db: VectorDBConfig = Field(
         default_factory=VectorDBConfig, description="Vector DB configuration"
     )

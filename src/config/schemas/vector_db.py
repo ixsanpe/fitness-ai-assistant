@@ -27,14 +27,10 @@ class VectorDBConfig(BaseModel):
     backend: VectorDBBackend = Field(
         default=VectorDBBackend.LOCAL, description="Backend: local or milvus_lite"
     )
-    local_path: Path | None = Field(
-        default=None, description="Path for local Milvus database"
-    )
+    local_path: Path | None = Field(default=None, description="Path for local Milvus database")
     host: str = Field(default="localhost", description="Milvus host")
     port: int = Field(default=19530, description="Milvus port", ge=1, le=65535)
-    collection_name: str = Field(
-        default="exercises_embeddings", description="Collection name"
-    )
+    collection_name: str = Field(default="exercises_embeddings", description="Collection name")
     vector_field: str = Field(default="vector", description="Vector field name")
     metric_type: SimilarityMetric = Field(
         default=SimilarityMetric.COSINE, description="Similarity metric"

@@ -1,4 +1,5 @@
 """Local in-memory search backend using numpy."""
+
 import numpy as np
 
 from src.inference_pipeline.backends.base import SearchBackend
