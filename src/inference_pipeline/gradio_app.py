@@ -6,6 +6,8 @@ from pathlib import Path
 import gradio as gr
 from PIL import Image, ImageDraw, ImageFont
 
+from src.config.inference import InferenceConfig
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -52,7 +54,7 @@ def find_image_for_id(ex_id: str, raw_exercises_dir: Path) -> str:
 def run_search(
     query: str,
     top_k: int = 5,
-    config_path: str = None,
+    config_path: str | None = None,
 ) -> tuple[list, list]:
     """Run pipeline query and return (images, captions) suitable for a gradio Gallery.
 
@@ -62,7 +64,8 @@ def run_search(
     """
     # Load config and init pipeline
     try:
-        config = load_config("inference", config_path)
+        config = load_config("inference", config_path or "configs/inference.yaml")
+        assert isinstance(config, InferenceConfig), "Config must be an InferenceConfig instance"
         pipe = InferencePipeline(config)
 
         # Load metadata and get paths from config
@@ -85,11 +88,12 @@ def run_search(
         idx = None
         raw_id = r.get("id") if r.get("id") is not None else r.get("idx")
         try:
-            idx = int(
+            idx_val = (
                 r.get("idx")
                 if r.get("idx") is not None
                 else (r.get("id") if isinstance(r.get("id"), int) else None)
             )
+            idx = int(idx_val) if idx_val is not None else None
         except Exception:
             idx = None
 
@@ -163,7 +167,8 @@ def run_search(
             font = ImageFont.load_default()
         except Exception:
             font = None
-        w, h = draw.textsize(text, font=font)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         draw.text(((size[0] - w) // 2, (size[1] - h) // 2), text, fill=(80, 80, 80), font=font)
         return img
 
@@ -174,7 +179,7 @@ def run_search(
     return images_filled, captions
 
 
-def build_interface(default_config: str = None):
+def build_interface(default_config: str | None = None):
     with gr.Blocks() as demo:
         gr.Markdown(
             "# Exercise Search — Vector Similarity\nEnter a query to find similar exercises. Results show top-K matches with images."

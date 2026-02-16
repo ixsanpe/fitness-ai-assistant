@@ -1,11 +1,8 @@
-"""Create and populate vector database with embeddings."""
-
-import argparse
+"""Utility functions for inference pipeline."""
 
 import numpy as np
 from pymilvus import MilvusClient
 
-from src.config import InferenceConfig, load_config
 from src.inference_pipeline.loaders import load_embeddings, load_metadata
 
 
@@ -74,22 +71,3 @@ def create_vector_db(config):
 
     print(f"✅ Successfully inserted {res['insert_count']} items into '{collection_name}'")
     print(f"Database location: {db_path}")
-
-
-def main(args):
-    """Main function."""
-    config = load_config("inference", args.config)
-    assert isinstance(config, InferenceConfig), "Config must be an InferenceConfig instance"
-
-    print(f"📋 Configuration: {config.name}")
-    print(f"Backend: {config.vector_db.backend}")
-    print(f"Collection: {config.vector_db.collection_name}\n")
-
-    create_vector_db(config)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create vector database from embeddings")
-    parser.add_argument("--config", type=str, default="configs/inference.yaml", help="Config file")
-    args = parser.parse_args()
-    main(args)

@@ -1,24 +1,14 @@
 # Inference Pipeline Configuration
-# This config is used for model serving and similarity search
 
 name: "inference_pipeline_dev"
-version: "0.1.0"
-environment: "development"
-seed: 42
-log_level: "info"
 
 # Device configuration
 device:
   device: "auto"
-  gpu_id: null
-  mixed_precision: false
 
 # Path configuration
 paths:
   project_root: "."
-  data_dir: "data"
-  raw_data_dir: "data/raw"
-  processed_data_dir: "data/processed"
   embeddings_dir: "data/processed/embeddings"
   models_dir: "models"
   results_dir: "results"
@@ -29,76 +19,14 @@ dataset_path: "data/processed/exercises_dataset.jsonl"
 model:
   model_name: "all-MiniLM-L6-v2"
   embedding_type: "sentence"
-  model_path: null
-
-  # Model parameters
-  max_seq_length: null
-  normalize_embeddings: true
-
-  # Performance
-  batch_size: 32
-  compile_model: false
 
 # Vector database configuration
 vector_db:
-  backend: "milvus_lite"  # Options: milvus, milvus_lite
+  backend: "milvus_lite"
   local_path: "data/vector_db/milvus_sentence.db"
-
-  # Connection settings (for remote backends)
   host: "localhost"
   port: 19530
-  username: null
-  password: null  # Use environment variable: FITNESS_AI_VECTOR_DB__PASSWORD
-
-  # Collection/Index settings
   collection_name: "exercises_embeddings"
   vector_field: "vector"
-  dimension: null  # Auto-detected
-
-  # Index settings
-  index_type: "FLAT"  # Options: FLAT, IVF_FLAT, HNSW, etc.
-  metric_type: "cosine"  # Options: cosine, euclidean, dot_product, l2
-  index_params: {}
-
-# Retrieval configuration
-retrieval:
-  # Basic retrieval
-  top_k: 5
-  min_score: null  # Minimum similarity score threshold (0-1)
-
-  # Query processing
-  query_prefix: ""
-  expand_query: false
-
-  # Reranking
-  reranking_strategy: "none"  # Options: none, cross_encoder, llm, hybrid
-  reranking_model: null
-  rerank_top_k: null
-
-  # Filtering
-  filters: {}
-
-  # Output fields
-  return_fields:
-    - "name"
-    - "description"
-    - "combined_text"
-  include_vectors: false
-  include_scores: true
-
-# Caching configuration
-caching:
-  enabled: true
-  ttl: 3600  # seconds
-  max_size: 1000
-  cache_embeddings: true
-
-# API settings
-enable_api: true
-api_host: "0.0.0.0"
-api_port: 7860
-enable_ui: true
-
-# Monitoring
-enable_metrics: true
-log_queries: true
+  metric_type: "cosine"
+  output_fields: []

@@ -1,13 +1,19 @@
 """Tests for feature pipeline components."""
 
+import json
 import tempfile
 from pathlib import Path
 
 import pytest
 
+from src.config import EmbeddingConfig, FeatureConfig
+from src.config.schemas import EmbeddingType
+from src.feature_pipeline.embedders import create_embedder
+from src.feature_pipeline.loaders import ExerciseLoader
 
-class TestBuildDataset:
-    """Test build_dataset.py functionality."""
+
+class TestFeaturePipeline:
+    """Test feature pipeline components."""
 
     @pytest.fixture
     def temp_raw_dir(self):
@@ -22,50 +28,38 @@ class TestBuildDataset:
 
             metadata = {
                 "name": "Push Up",
+                "force": "push",
+                "level": "beginner",
+                "mechanic": "compound",
+                "equipment": "bodyweight",
                 "primaryMuscles": ["chest", "triceps"],
+                "secondaryMuscles": ["shoulders"],
+                "category": "strength",
                 "instructions": ["Get into plank position", "Lower body", "Push up"],
             }
-
-            import json
 
             (exercise_dir / "metadata.json").write_text(json.dumps(metadata))
 
             yield raw_dir
 
-    def test_build_dataset_with_config(self, temp_raw_dir):
-        """Test build_dataset can run with config."""
-        from src.config.feature_config import FeatureConfig
-        from src.feature_pipeline.build_dataset import build_dataset
+    def test_exercise_loader_with_config(self, temp_raw_dir):
+        """Test ExerciseLoader can load exercises from directory."""
+        loader = ExerciseLoader(min_text_length=5, remove_duplicates=False)
+        items = loader.load(temp_raw_dir)
 
-        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp_output:
-            output_path = Path(tmp_output.name)
-
-        try:
-            # Create config with test paths
-            config = FeatureConfig(
-                name="test-build-dataset",
-                paths={"raw_data_dir": str(temp_raw_dir.parent), "dataset_path": str(output_path)},
-            )
-
-            # Should not raise
-            try:
-                build_dataset(config)
-            except Exception as e:
-                # It's OK if it fails due to missing data, we just want to test it accepts config
-                assert "config" not in str(e).lower()
-        finally:
-            output_path.unlink(missing_ok=True)
+        # Should load at least one exercise
+        assert len(items) >= 1
+        assert "combined_text" in items[0]
+        assert "image_paths" in items[0]
 
 
-class TestComputeEmbeddings:
-    """Test compute_embeddings.py functionality."""
+class TestEmbedders:
+    """Test embedder functionality."""
 
     @pytest.fixture
     def temp_dataset(self):
         """Create temporary dataset file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
-            import json
-
             data = [
                 {
                     "id": "push_up",
@@ -85,49 +79,55 @@ class TestComputeEmbeddings:
         yield Path(temp_path)
         Path(temp_path).unlink(missing_ok=True)
 
-    def test_embedding_generator_sentence(self, temp_dataset):
-        """Test EmbeddingGenerator with sentence model."""
-        from src.config.feature_config import FeatureConfig
-        from src.feature_pipeline.compute_embeddings import EmbeddingGenerator, load_dataset
-
+    def test_sentence_embedder(self, temp_dataset):
+        """Test sentence embedder."""
         with tempfile.TemporaryDirectory() as tmpdir:
+            from src.config.schemas import PathConfig
+
             config = FeatureConfig(
                 name="test-sentence-embeddings",
-                embedding={"embedding_type": "sentence"},
-                paths={"dataset_path": str(temp_dataset), "embeddings_dir": tmpdir},
+                embedding=EmbeddingConfig(embedding_type=EmbeddingType.SENTENCE),
+                paths=PathConfig(embeddings_dir=Path(tmpdir)),
             )
 
-            # Load dataset items
-            items = load_dataset(temp_dataset)
+            # Load dataset items from JSONL
+            items = []
+            with open(temp_dataset) as f:
+                for line in f:
+                    items.append(json.loads(line))
 
-            generator = EmbeddingGenerator(config, device="cpu")
+            embedder = create_embedder(config, device="cpu")
 
             # Should not raise
-            embeddings = generator.compute(items)
+            embeddings = embedder.compute(items)
 
             # Check output shape
             assert embeddings.shape[0] == 2  # Two samples
             assert embeddings.shape[1] == 384  # all-MiniLM-L6-v2 dimension
 
-    def test_embedding_generator_clip(self, temp_dataset):
-        """Test EmbeddingGenerator with CLIP model."""
-        from src.config.feature_config import FeatureConfig
-        from src.feature_pipeline.compute_embeddings import EmbeddingGenerator, load_dataset
-
+    def test_clip_embedder(self, temp_dataset):
+        """Test CLIP embedder."""
         with tempfile.TemporaryDirectory() as tmpdir:
+            from src.config.schemas import PathConfig
+
             config = FeatureConfig(
                 name="test-clip-embeddings",
-                embedding={"embedding_type": "clip", "model_name": "openai/clip-vit-base-patch32"},
-                paths={"dataset_path": str(temp_dataset), "embeddings_dir": tmpdir},
+                embedding=EmbeddingConfig(
+                    embedding_type=EmbeddingType.CLIP, model_name="openai/clip-vit-base-patch32"
+                ),
+                paths=PathConfig(embeddings_dir=Path(tmpdir)),
             )
 
-            # Load dataset items
-            items = load_dataset(temp_dataset)
+            # Load dataset items from JSONL
+            items = []
+            with open(temp_dataset) as f:
+                for line in f:
+                    items.append(json.loads(line))
 
-            generator = EmbeddingGenerator(config, device="cpu")
+            embedder = create_embedder(config, device="cpu")
 
             # Should not raise
-            embeddings = generator.compute(items)
+            embeddings = embedder.compute(items)
 
             # Check output shape
             assert embeddings.shape[0] == 2  # Two samples
