@@ -15,20 +15,16 @@ The experiments track metrics like:
 """
 
 import argparse
-import sys
 import time
 from pathlib import Path
 
 import mlflow
 import numpy as np
 import torch
-from sentence_transformers import SentenceTransformer
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.config import FeatureConfig, load_config
-from src.feature_pipeline.compute_embeddings import load_dataset
+from src.feature_pipeline.embedders import create_embedder
+from src.feature_pipeline.utils import load_dataset
 
 
 class EmbeddingExperiment:
@@ -54,106 +50,70 @@ class EmbeddingExperiment:
         mlflow.set_experiment(experiment_name)
         self.experiment_name = experiment_name
 
-    def run_sentence_experiment(
+    def run_experiment(
         self,
-        model_name: str,
+        config: FeatureConfig,
         items: list[dict],
-        batch_size: int = 32,
-        normalize: bool = True,
-        device: str = "cpu",
         max_samples: int | None = None,
     ):
-        """Run experiment for sentence-transformer model.
+        """Run experiment using the feature pipeline embedder.
 
         Args:
-            model_name: HuggingFace model name
+            config: Feature pipeline configuration
             items: Dataset items
-            batch_size: Batch size for encoding
-            normalize: Whether to normalize embeddings
-            device: Device to use (cpu, cuda)
+            device: Device to use (cpu, cuda, mps)
             max_samples: Maximum number of samples to use (for faster testing)
         """
-        run_name = f"sentence_{model_name.replace('/', '_')}_bs{batch_size}"
+        sample_items = items[:max_samples] if max_samples else items
+        run_name = (
+            f"{config.embedding.embedding_type}_"
+            f"{config.embedding.model_name.replace('/', '_')}_"
+            f"bs{config.embedding.batch_size}"
+        )
+        device = config.device.resolve()
 
         with mlflow.start_run(run_name=run_name):
-            # Log parameters
-            mlflow.log_param("embedding_type", "sentence")
-            mlflow.log_param("model_name", model_name)
-            mlflow.log_param("batch_size", batch_size)
-            mlflow.log_param("normalize", normalize)
+            mlflow.log_param("embedding_type", config.embedding.embedding_type)
+            mlflow.log_param("model_name", config.embedding.model_name)
+            mlflow.log_param("batch_size", config.embedding.batch_size)
+            mlflow.log_param("normalize", config.embedding.normalize)
             mlflow.log_param("device", device)
-            mlflow.log_param("num_samples", len(items[:max_samples] if max_samples else items))
+            mlflow.log_param("num_samples", len(sample_items))
 
             try:
-                # Load model
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"Running experiment: {run_name}")
-                print(f"{'='*60}")
-                # TODO: reuse the EmbeddingGenerator class from feature_pipeline.compute_embeddings
-                load_start = time.time()
-                model = SentenceTransformer(model_name, device=device)
-                load_time = time.time() - load_start
+                print(f"{'=' * 60}")
+                print(device)
 
-                mlflow.log_metric("model_load_time_seconds", load_time)
-                mlflow.log_metric("embedding_dimension", model.get_sentence_embedding_dimension())
+                embedder = create_embedder(config, device)
 
-                # Prepare texts
-                texts = [
-                    it.get("combined_text", "")
-                    for it in (items[:max_samples] if max_samples else items)
-                ]
-
-                # Measure encoding time
                 encode_start = time.time()
-
-                embeddings = model.encode(
-                    texts,
-                    batch_size=batch_size,
-                    show_progress_bar=True,
-                    convert_to_tensor=True,
-                    normalize_embeddings=normalize,
-                )
+                embeddings = embedder.compute(sample_items)
                 encode_time = time.time() - encode_start
 
-                # Log metrics
                 mlflow.log_metric("encoding_time_seconds", encode_time)
-                mlflow.log_metric("samples_per_second", len(texts) / encode_time)
+                mlflow.log_metric("samples_per_second", len(sample_items) / encode_time)
+                mlflow.log_metric("embedding_dimension", embeddings.shape[-1])
                 mlflow.log_metric("embedding_mean", float(embeddings.mean()))
                 mlflow.log_metric("embedding_std", float(embeddings.std()))
                 mlflow.log_metric("embedding_min", float(embeddings.min()))
                 mlflow.log_metric("embedding_max", float(embeddings.max()))
 
-                # Memory metrics (if using CUDA)
                 if device == "cuda" and torch.cuda.is_available():
                     memory_allocated = torch.cuda.max_memory_allocated() / 1024**2  # MB
                     mlflow.log_metric("max_memory_mb", memory_allocated)
                     torch.cuda.reset_peak_memory_stats()
+                elif device == "mps" and torch.backends.mps.is_available():
+                    memory_allocated = torch.mps.current_allocated_memory() / 1024**2  # MB
+                    mlflow.log_metric("max_memory_mb", memory_allocated)
 
-                # Compute embedding quality metrics
                 self._log_embedding_quality_metrics(embeddings)
-
-                # Infer model signature for MLflow
-                sample_texts = texts[:3]  # Use small sample for signature
-                sample_output = model.encode(sample_texts, convert_to_numpy=True)
-                signature = mlflow.models.infer_signature(
-                    model_input=sample_texts,
-                    model_output=sample_output,
-                )
-                print(signature)
-
-                # Log model with sentence-transformers flavor (MLflow built-in support)
-                mlflow.sentence_transformers.log_model(
-                    model,
-                    name=model_name,
-                    signature=signature,
-                    input_example=sample_texts,
-                    registered_model_name=None,  # Set to register the model
-                )
 
                 print(f"✅ Experiment completed: {run_name}")
                 print(f"   - Encoding time: {encode_time:.2f}s")
-                print(f"   - Samples/sec: {len(texts) / encode_time:.2f}")
-                print(f"   - Embedding dim: {model.get_sentence_embedding_dimension()}")
+                print(f"   - Samples/sec: {len(sample_items) / encode_time:.2f}")
+                print(f"   - Embedding dim: {embeddings.shape[-1]}")
 
                 return embeddings
 
@@ -211,36 +171,27 @@ class EmbeddingExperiment:
         """
         items = load_dataset(dataset_path)
 
-        print(f"\n{'#'*60}")
+        print(f"\n{'#' * 60}")
         print(f"Starting comparison suite with {len(config_paths)} configurations")
         print(f"Dataset: {len(items)} items (using {max_samples or 'all'})")
         print(f"Device: {device}")
-        print(f"{'#'*60}\n")
+        print(f"{'#' * 60}\n")
 
         for config_path in config_paths:
             try:
-                config: FeatureConfig = load_config("feature", config_path)
-
-                if config.embedding.embedding_type == "sentence":
-                    self.run_sentence_experiment(
-                        model_name=config.embedding.model_name,
-                        items=items,
-                        batch_size=config.embedding.batch_size,
-                        normalize=config.embedding.normalize,
-                        device=device,
-                        max_samples=max_samples,
-                    )
-                elif config.embedding.embedding_type == "clip":
-                    raise NotImplementedError("CLIP experiment not implemented yet")
-
+                config = load_config("feature", config_path)
+                assert isinstance(
+                    config, FeatureConfig
+                ), "Config file must be of type FeatureConfig"
+                self.run_experiment(config=config, items=items, max_samples=max_samples)
             except Exception as e:
                 print(f"Failed to run experiment with config {config_path}: {e}")
                 continue
 
-        print(f"\n{'#'*60}")
+        print(f"\n{'#' * 60}")
         print("Comparison suite completed!")
         print("View results with: mlflow ui")
-        print(f"{'#'*60}\n")
+        print(f"{'#' * 60}\n")
 
 
 def main(args):
@@ -266,19 +217,9 @@ def main(args):
     if args.mode == "single":
         # Run single experiment from config
         items = load_dataset(dataset_path)
-        config: FeatureConfig = load_config("feature", args.config)
-
-        if config.embedding.embedding_type == "sentence":
-            experiment.run_sentence_experiment(
-                model_name=config.embedding.model_name,
-                items=items,
-                batch_size=config.embedding.batch_size,
-                normalize=config.embedding.normalize,
-                device=device,
-                max_samples=args.max_samples,
-            )
-        elif config.embedding.embedding_type == "clip":
-            raise NotImplementedError("CLIP experiment not implemented yet")
+        config = load_config("feature", args.config)
+        assert isinstance(config, FeatureConfig), "Config file must be of type FeatureConfig"
+        experiment.run_experiment(config=config, items=items, max_samples=args.max_samples)
 
     elif args.mode == "compare":
         # Run comparison suite with multiple configs
@@ -318,7 +259,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--tracking_uri",
         type=str,
-        default="sqlite:///mlruns/mlflow.db",
+        default="http://127.0.0.1:5000",
         help="MLflow tracking URI. Examples: 'http://localhost:5000', 'file:./mlruns', 'sqlite:///mlflow.db'",
     )
 
@@ -346,8 +287,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--device",
         type=str,
-        choices=["cpu", "cuda", "mps", "auto"],
-        default="auto",
+        choices=["cpu", "cuda", "mps", "auto", None],
+        default=None,
         help="Device to use for computation",
     )
 
@@ -364,19 +305,19 @@ if __name__ == "__main__":
 # Usage examples:
 #
 # Run single experiment (local):
-# python src/training_pipeline/mlflow_experiments.py --mode single --config configs/feature_sentence.yaml
+# python -m src.training_pipeline.mlflow_experiments --mode single --config configs/feature_sentence.yaml
 #
 # Compare multiple configurations (local):
-# python src/training_pipeline/mlflow_experiments.py --mode compare --configs configs/feature_sentence.yaml configs/feature_clip.yaml
+# python -m src.training_pipeline.mlflow_experiments --mode compare --configs configs/feature_sentence.yaml configs/feature_clip.yaml
 #
 # Quick test with limited samples:
-# python src/training_pipeline/mlflow_experiments.py --mode compare --max_samples 100
+# python -m src.training_pipeline.mlflow_experiments --mode compare --max_samples 100
 #
 # Use remote MLflow server:
-# python src/training_pipeline/mlflow_experiments.py --mode compare --tracking_uri http://localhost:5000
+# python -m src.training_pipeline.mlflow_experiments --mode compare --tracking_uri http://localhost:5000
 #
 # Use with database backend:
-# python src/training_pipeline/mlflow_experiments.py --mode compare --tracking_uri sqlite:///mlflow.db
+# python -m src.training_pipeline.mlflow_experiments --mode compare --tracking_uri sqlite:///mlflow.db
 #
 # Start MLflow server (in separate terminal):
 # mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns

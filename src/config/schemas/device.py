@@ -1,11 +1,12 @@
 """Device configuration schema."""
 
-from enum import Enum
+from enum import StrEnum
 
+import torch
 from pydantic import BaseModel, Field, field_validator
 
 
-class DeviceType(str, Enum):
+class DeviceType(StrEnum):
     """Compute device types."""
 
     CPU = "cpu"
@@ -20,6 +21,16 @@ class DeviceConfig(BaseModel):
     device: DeviceType = Field(default=DeviceType.AUTO, description="Compute device")
     gpu_id: int | None = Field(default=None, description="GPU ID when using CUDA")
     mixed_precision: bool = Field(default=False, description="Use mixed precision")
+
+    def resolve(self) -> str:
+        """Resolve 'auto' to the actual available device."""
+        if self.device == DeviceType.AUTO:
+            if torch.cuda.is_available():
+                return DeviceType.CUDA
+            elif torch.backends.mps.is_available():
+                return DeviceType.MPS
+            return DeviceType.CPU
+        return self.device
 
     @field_validator("gpu_id")
     @classmethod

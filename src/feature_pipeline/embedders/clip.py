@@ -42,7 +42,12 @@ class CLIPEmbedder(BaseEmbedder):
             ).to(self.device)
 
             with torch.no_grad():
-                text_emb = model.get_text_features(**text_input)
+                text_output = model.get_text_features(**text_input)
+                # transformers 5.x may return BaseModelOutputWithPooling instead of a tensor
+                if isinstance(text_output, torch.Tensor):
+                    text_emb = text_output
+                else:
+                    text_emb = model.text_projection(text_output.pooler_output)
             text_embeddings.append(text_emb.cpu())
 
             # Process images

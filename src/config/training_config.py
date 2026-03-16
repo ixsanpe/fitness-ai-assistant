@@ -1,6 +1,6 @@
 """Training pipeline configuration for model training and fine-tuning."""
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 from .base import BaseConfig
 
 
-class TrainingStrategy(str, Enum):
+class TrainingStrategy(StrEnum):
     """Training strategies."""
 
     SUPERVISED = "supervised"
@@ -18,7 +18,7 @@ class TrainingStrategy(str, Enum):
     FINE_TUNE = "fine_tune"
 
 
-class LossFunction(str, Enum):
+class LossFunction(StrEnum):
     """Loss functions for training."""
 
     CROSS_ENTROPY = "cross_entropy"
@@ -29,7 +29,7 @@ class LossFunction(str, Enum):
     MULTI_SIMILARITY_LOSS = "multi_similarity_loss"
 
 
-class OptimizerType(str, Enum):
+class OptimizerType(StrEnum):
     """Optimizer types."""
 
     ADAM = "adam"
@@ -39,7 +39,7 @@ class OptimizerType(str, Enum):
     RMSPROP = "rmsprop"
 
 
-class SchedulerType(str, Enum):
+class SchedulerType(StrEnum):
     """Learning rate scheduler types."""
 
     CONSTANT = "constant"

@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import torch
-
 from src.config import FeatureConfig, load_config
 from src.feature_pipeline.embedders import create_embedder
 from src.feature_pipeline.loaders import ExerciseLoader
@@ -22,16 +20,11 @@ class FeaturePipeline:
         )
         self.embedder = create_embedder(config, self.device)
         self.storage = EmbeddingStorage(config.paths.embeddings_dir)
+        print(f"Initialized FeaturePipeline with device: {self.device}")
 
     def _get_device(self) -> str:
         """Determine device to use."""
-        if self.config.device.device == "auto":
-            if torch.cuda.is_available():
-                return "cuda"
-            elif torch.backends.mps.is_available():
-                return "mps"
-            return "cpu"
-        return self.config.device.device
+        return self.config.device.resolve()
 
     def run(
         self,
