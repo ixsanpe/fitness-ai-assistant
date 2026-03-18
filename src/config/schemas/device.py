@@ -2,7 +2,6 @@
 
 from enum import StrEnum
 
-import torch
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -24,6 +23,8 @@ class DeviceConfig(BaseModel):
 
     def resolve(self) -> str:
         """Resolve 'auto' to the actual available device."""
+        import torch
+
         if self.device == DeviceType.AUTO:
             if torch.cuda.is_available():
                 return DeviceType.CUDA
