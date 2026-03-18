@@ -33,6 +33,9 @@ test-cov:
 # Run all checks before committing (lint + tests)
 check-commit: lint test
 
-# Interactive conventional commit
-commit: check-commit
+# Interactive conventional commit (formats, re-stages, checks, then commits)
+commit:
+    just lint-fix
+    git add -u
+    just check-commit
     uv run cz commit
