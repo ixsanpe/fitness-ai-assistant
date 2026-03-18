@@ -9,6 +9,9 @@ help:
 install:
     uv sync --frozen --dev
 
+install-ci:
+    uv sync --frozen --extra cpu --dev
+
 # Run linter and formatter checks
 lint:
     uv run ruff check src tests
@@ -21,15 +24,15 @@ lint-fix:
 
 # Run tests
 test:
-    uv run pytest
+    CUDA_VISIBLE_DEVICES="" uv run pytest
 
 # Run tests with coverage report
 test-cov:
-    uv run pytest --cov=src --cov-report=term-missing
+    CUDA_VISIBLE_DEVICES="" uv run pytest --cov=src --cov-report=term-missing
 
 # Run all checks before committing (lint + tests)
 check-commit: lint test
 
 # Interactive conventional commit
-commit:
+commit: check-commit
     uv run cz commit
