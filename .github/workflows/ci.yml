@@ -22,6 +22,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen --extra cpu --dev
-      - name: Debug torch install
-        run: uv pip show torch
-      - run: CUDA_VISIBLE_DEVICES="" uv run pytest --cov=src --cov-report=term-missing
+      - run: CUDA_VISIBLE_DEVICES="" uv run --extra cpu pytest --cov=src --cov-report=term-missing
