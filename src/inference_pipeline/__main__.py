@@ -25,9 +25,9 @@ def main():
 
     try:
         config = load_config("inference", args.config)
-        assert isinstance(
-            config, InferenceConfig
-        ), "Loaded config is not an InferenceConfig instance"
+        assert isinstance(config, InferenceConfig), (  # noqa
+            "Loaded config is not an InferenceConfig instance"
+        )
         print(f"✅ Loaded config: {config.name}")
 
         pipeline = InferencePipeline(config)

@@ -180,9 +180,9 @@ class EmbeddingExperiment:
         for config_path in config_paths:
             try:
                 config = load_config("feature", config_path)
-                assert isinstance(
-                    config, FeatureConfig
-                ), "Config file must be of type FeatureConfig"
+                assert isinstance(config, FeatureConfig), (  # noqa
+                    "Config file must be of type FeatureConfig"
+                )
                 self.run_experiment(config=config, items=items, max_samples=max_samples)
             except Exception as e:
                 print(f"Failed to run experiment with config {config_path}: {e}")
