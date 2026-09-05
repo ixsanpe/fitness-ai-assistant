@@ -2,6 +2,7 @@
 ### Setup the project with `uv`
 Create venv, pyproject.toml and setup.sh \
 In the setup.sh we define the installation of the package based on backend for torch. \
+It is useful to distinguish dev dependencies vs. prod.
 ### Structure the project
 - FTI: Feature, Training Inference architecture
 1. The _feature pipeline_ transforms your data into features & labels, which are stored and versioned in a feature store. The feature store will act as the central repository of your features.
@@ -18,13 +19,15 @@ The vector db comparison: https://docs.langchain.com/oss/python/integrations/vec
 Ability to translate diverse data types into a common representational format in a high-dimensional space, where data of similar semantic are placed close together.
 [Link info](https://milvus.io/docs/embeddings.md#Embedding-Overview)
 #### CLIP
-CLIP Processor: includes the image processor and the tokenizer. The inputs are seet in TextKwargs
+CLIP Processor: includes the image processor and the tokenizer. The inputs are set in TextKwargs
 
 ### Model evaluation
 Most multimodal models use zero-shot learning (ZSL) where, at test time, a learner observes samples from classes which were not observed during training, and needs to predict the class that they belong to.
 
+### mlflow for experiment tracking
+
 ## pending steps:
-logging, dvc, mlflow, docker, testing, refactor
+logging, dvc, docker, mcp
 finetuning model for fitness
 
 https://bhavishyapandit9.substack.com/p/building-multimodal-embeddings-a

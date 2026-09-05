@@ -1,19 +1,19 @@
 """Vector database configuration schema."""
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 
-class VectorDBBackend(str, Enum):
+class VectorDBBackend(StrEnum):
     """Supported vector database backends."""
 
     LOCAL = "local"
     MILVUS_LITE = "milvus_lite"
 
 
-class SimilarityMetric(str, Enum):
+class SimilarityMetric(StrEnum):
     """Similarity metrics for retrieval."""
 
     COSINE = "cosine"

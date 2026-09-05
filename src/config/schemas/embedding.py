@@ -1,11 +1,11 @@
 """Embedding configuration schema."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class EmbeddingType(str, Enum):
+class EmbeddingType(StrEnum):
     """Embedding model types."""
 
     SENTENCE = "sentence"

@@ -32,7 +32,7 @@ class TestInferencePipeline:
         """Test pipeline query returns expected format."""
         from src.inference_pipeline.pipeline import InferencePipeline
 
-        with patch("src.inference_pipeline.pipeline.LocalBackend") as mock_backend:
+        with patch("src.inference_pipeline.pipeline.MilvusBackend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.search.return_value = [
                 {"id": "ex1", "score": 0.95, "combined_text": "Test exercise"}

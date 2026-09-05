@@ -71,8 +71,7 @@ class EmbeddingStorage:
         """
         if save_format not in self.SUPPORTED_FORMATS:
             raise ValueError(
-                f"Unsupported save format: {save_format}. "
-                f"Must be one of {self.SUPPORTED_FORMATS}"
+                f"Unsupported save format: {save_format}. Must be one of {self.SUPPORTED_FORMATS}"
             )
 
         output_path = self.embeddings_dir / f"{embedding_type}_embed.{save_format}"
