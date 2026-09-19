@@ -12,6 +12,28 @@ The experiments track metrics like:
 - Inference time
 - Memory usage
 - Embedding quality metrics (if applicable)
+
+Usage:
+    # Run single experiment (local)
+    python -m src.training_pipeline.mlflow_experiments --mode single --config configs/feature_sentence.yaml
+
+    # Compare multiple configurations (local)
+    python -m src.training_pipeline.mlflow_experiments --mode compare --configs configs/feature_sentence.yaml configs/feature_clip.yaml
+
+    # Quick test with limited samples
+    python -m src.training_pipeline.mlflow_experiments --mode compare --max_samples 100
+
+    # Use remote MLflow server
+    python -m src.training_pipeline.mlflow_experiments --mode compare --tracking_uri http://localhost:5000
+
+    # Use with database backend
+    python -m src.training_pipeline.mlflow_experiments --mode compare --tracking_uri sqlite:///mlflow.db
+
+    # Start MLflow server (in separate terminal)
+    mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns
+
+    # View local results
+    mlflow ui --port 5000 --backend-store-uri sqlite:///mlruns/mlflow.db
 """
 
 import argparse
@@ -301,26 +323,3 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(args)
-
-# Usage examples:
-#
-# Run single experiment (local):
-# python -m src.training_pipeline.mlflow_experiments --mode single --config configs/feature_sentence.yaml
-#
-# Compare multiple configurations (local):
-# python -m src.training_pipeline.mlflow_experiments --mode compare --configs configs/feature_sentence.yaml configs/feature_clip.yaml
-#
-# Quick test with limited samples:
-# python -m src.training_pipeline.mlflow_experiments --mode compare --max_samples 100
-#
-# Use remote MLflow server:
-# python -m src.training_pipeline.mlflow_experiments --mode compare --tracking_uri http://localhost:5000
-#
-# Use with database backend:
-# python -m src.training_pipeline.mlflow_experiments --mode compare --tracking_uri sqlite:///mlflow.db
-#
-# Start MLflow server (in separate terminal):
-# mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns
-#
-# View local results:
-# mlflow ui --port 5000 --backend-store-uri sqlite:///mlruns/mlflow.db

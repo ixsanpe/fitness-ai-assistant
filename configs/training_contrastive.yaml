@@ -1,0 +1,48 @@
+# Training Pipeline Configuration — contrastive fine-tune of the sentence
+# embedder on data/training/contrastive_pairs.jsonl (see build_eval_set.py)
+
+name: "training_pipeline_contrastive"
+seed: 42
+
+device:
+  device: "auto"
+  gpu_id: null
+  mixed_precision: false
+
+paths:
+  project_root: "."
+  data_dir: "data"
+  raw_data_dir: "data/raw"
+  processed_data_dir: "data/processed"
+  embeddings_dir: "data/processed/embeddings"
+  models_dir: "models"
+  results_dir: "results"
+
+model_name: "sentence-transformers/all-MiniLM-L6-v2"
+
+loss_function: "multiple_negatives_ranking"
+
+num_epochs: 8
+
+optimizer:
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+
+scheduler:
+  num_warmup_steps: 10
+
+data:
+  train_path: "data/training/contrastive_pairs.jsonl"
+  val_split: 0.1
+  batch_size: 32
+  drop_last: true # MultipleNegativesRankingLoss needs full batches for in-batch negatives
+
+checkpoint:
+  save_dir: "models/finetuned-minilm-fitness"
+
+evaluation:
+  eval_strategy: "epoch"
+
+logging_steps: 10
+
+run_name: "contrastive-minilm-fitness"

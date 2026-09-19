@@ -1,3 +1,11 @@
+"""Gradio web UI for interactively querying the inference pipeline.
+
+Usage:
+    python -m src.inference_pipeline.gradio_app
+    python -m src.inference_pipeline.gradio_app --config configs/inference_prod.yaml --port 8080
+    python -m src.inference_pipeline.gradio_app --share  # Creates public URL
+"""
+
 import glob
 import json
 from pathlib import Path
@@ -261,9 +269,3 @@ if __name__ == "__main__":
 
     app = build_interface(default_config=args.config)
     app.launch(server_name=args.host, server_port=args.port, share=args.share)
-
-# Usage:
-# python -m src.inference_pipeline.gradio_app
-# python -m src.inference_pipeline.gradio_app --config configs/inference.yaml
-# python -m src.inference_pipeline.gradio_app --config configs/inference_prod.yaml --port 8080
-# python -m src.inference_pipeline.gradio_app --share  # Creates public URL
