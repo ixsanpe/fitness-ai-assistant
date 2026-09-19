@@ -1,4 +1,8 @@
-"""Create and populate vector database with embeddings."""
+"""Create and populate vector database with embeddings.
+
+Usage:
+    python -m src.inference_pipeline.create_db --config configs/inference.yaml
+"""
 
 import argparse
 

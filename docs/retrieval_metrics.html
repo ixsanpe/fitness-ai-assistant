@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retrieval Metrics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F2F5F3;
+    --surface:#FFFFFF;
+    --surface-2:#E7ECE9;
+    --ink:#132019;
+    --muted:#5B6B63;
+    --line:#D8E0DC;
+    --hit:#187A52;
+    --hit-bg:#E1F3EA;
+    --miss:#98A29C;
+    --miss-bg:#EEF1EF;
+    --accent:#2C58A0;
+    --accent-bg:#E7EEF9;
+    --shadow: 0 1px 2px rgba(19,32,25,0.06), 0 8px 24px rgba(19,32,25,0.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0E1512;
+      --surface:#161F1A;
+      --surface-2:#1E2921;
+      --ink:#E9F1EC;
+      --muted:#93A49B;
+      --line:#2A3730;
+      --hit:#3FCE8B;
+      --hit-bg:rgba(63,206,139,0.14);
+      --miss:#78857D;
+      --miss-bg:rgba(255,255,255,0.04);
+      --accent:#7FA6E8;
+      --accent-bg:rgba(127,166,232,0.14);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0E1512;
+    --surface:#161F1A;
+    --surface-2:#1E2921;
+    --ink:#E9F1EC;
+    --muted:#93A49B;
+    --line:#2A3730;
+    --hit:#3FCE8B;
+    --hit-bg:rgba(63,206,139,0.14);
+    --miss:#78857D;
+    --miss-bg:rgba(255,255,255,0.04);
+    --accent:#7FA6E8;
+    --accent-bg:rgba(127,166,232,0.14);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, sans-serif;
+    line-height:1.5;
+    padding-inline:16px;
+  }
+  .page{
+    max-width:760px;
+    margin:0 auto;
+    padding-block:48px 80px;
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+  }
+  h1,h2{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    text-wrap:balance;
+    margin:0;
+  }
+  h1{ font-size:clamp(1.9rem, 4vw, 2.5rem); letter-spacing:-0.01em; }
+  h2{ font-size:1.4rem; letter-spacing:-0.01em; color:var(--ink); }
+  p{ margin:0; }
+  .muted{ color:var(--muted); }
+  code, .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; }
+
+  header.intro{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  header.intro .eyebrow{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.72rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+  }
+  header.intro p.dek{
+    color:var(--muted);
+    font-size:1.02rem;
+    max-width:60ch;
+  }
+
+  .example-box{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px 20px;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .example-box .label{
+    font-size:0.72rem;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    color:var(--muted);
+  }
+  .example-box .query{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:1.05rem;
+  }
+  .example-box .stats{
+    display:flex;
+    flex-wrap:wrap;
+    gap:16px;
+    font-size:0.88rem;
+    color:var(--muted);
+  }
+  .example-box .stats b{ color:var(--ink); font-family:"IBM Plex Mono", monospace; }
+  .example-box .note{
+    font-size:0.82rem;
+    color:var(--muted);
+    border-top:1px dashed var(--line);
+    padding-top:8px;
+    margin-top:2px;
+  }
+
+  .metric-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:24px 24px 22px;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .metric-card .head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .metric-card .num{
+    font-family:"IBM Plex Mono", monospace;
+    color:var(--accent);
+    font-size:0.85rem;
+    letter-spacing:0.06em;
+  }
+  .metric-card .dek{ color:var(--muted); font-size:0.94rem; max-width:58ch; }
+
+  .ranklist{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .ranklist li{
+    display:grid;
+    grid-template-columns:26px 1fr auto;
+    align-items:center;
+    gap:12px;
+    padding:8px 12px;
+    border-radius:9px;
+    background:var(--surface-2);
+    font-size:0.92rem;
+  }
+  .ranklist li.hit{ background:var(--hit-bg); }
+  .ranklist li.dim{ opacity:0.45; }
+  .ranklist .rank{
+    font-family:"IBM Plex Mono", monospace;
+    color:var(--muted);
+    font-size:0.85rem;
+  }
+  .ranklist .name{ font-family:"IBM Plex Mono", monospace; font-size:0.86rem; }
+  .ranklist .tag{
+    font-size:0.72rem;
+    padding:2px 8px;
+    border-radius:99px;
+    white-space:nowrap;
+    color:var(--muted);
+    background:var(--miss-bg);
+  }
+  .ranklist li.hit .tag{ color:var(--hit); background:transparent; border:1px solid var(--hit); }
+  .ranklist .annot{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.72rem;
+    color:var(--accent);
+    white-space:nowrap;
+  }
+  .ranklist .weight{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.72rem;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+
+  .universe{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+    max-width:100%;
+  }
+  .universe span{
+    width:11px; height:11px; border-radius:3px;
+    background:var(--miss-bg);
+    border:1px solid var(--line);
+  }
+  .universe span.filled{ background:var(--hit); border-color:var(--hit); }
+
+  .formula-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px 16px;
+    background:var(--accent-bg);
+    border-radius:10px;
+    padding:12px 14px;
+  }
+  .formula-row .formula{ font-family:"IBM Plex Mono", monospace; font-size:0.88rem; color:var(--ink); }
+  .formula-row .equals{ color:var(--muted); }
+  .formula-row .value{
+    font-family:"IBM Plex Mono", monospace;
+    font-weight:600;
+    font-size:1.05rem;
+    color:var(--accent);
+  }
+
+  .insight{
+    font-size:0.9rem;
+    color:var(--muted);
+    border-top:1px solid var(--line);
+    padding-top:12px;
+  }
+  .insight b{ color:var(--ink); }
+
+  .mrr-table{ width:100%; border-collapse:collapse; font-size:0.88rem; }
+  .mrr-table th, .mrr-table td{
+    text-align:left;
+    padding:7px 10px;
+    border-bottom:1px solid var(--line);
+    font-family:"IBM Plex Mono", monospace;
+  }
+  .mrr-table th{ color:var(--muted); font-weight:500; font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .mrr-table tr:last-child td{ border-bottom:none; font-weight:600; }
+
+  .summary{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:24px;
+    box-shadow:var(--shadow);
+    overflow-x:auto;
+  }
+  table.compare{ width:100%; border-collapse:collapse; font-size:0.86rem; min-width:640px; }
+  table.compare th, table.compare td{
+    text-align:left;
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  table.compare th{ color:var(--muted); font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; }
+  table.compare td.metric{ font-family:"IBM Plex Mono", monospace; font-weight:600; color:var(--ink); white-space:nowrap; }
+  table.compare td{ color:var(--muted); }
+  table.compare td b{ color:var(--ink); font-weight:500; }
+
+  footer.note{
+    font-size:0.82rem;
+    color:var(--muted);
+    max-width:60ch;
+  }
+
+  @media (max-width:520px){
+    .ranklist li{ grid-template-columns:22px 1fr; row-gap:2px; }
+    .ranklist .annot, .ranklist .weight{ grid-column:1 / -1; padding-left:34px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="intro">
+    <span class="eyebrow">eval_harness.py · retrieval metrics</span>
+    <h1>What each number is actually measuring</h1>
+    <p class="dek">One query, one worked ranking, five metrics computed on it by hand — so precision@k, recall@k, MAP@k, NDCG@k, and MRR stop being five interchangeable "goodness" scores and become five different questions.</p>
+  </header>
+
+  <div class="example-box">
+    <span class="label">Shared example</span>
+    <div class="query">"barbell exercise for hamstrings"</div>
+    <div class="stats">
+      <span>relevant in corpus: <b>22</b></span>
+      <span>k: <b>5</b></span>
+      <span>hits in top‑5: <b>3</b></span>
+    </div>
+    <div class="note">This query and its 22-item relevant set are real, from <code>data/eval/test_queries.jsonl</code>. The top‑5 ranking below is a hand-picked worked example — not live output from the pipeline — chosen so every metric below produces a different, instructive number.</div>
+  </div>
+
+  <!-- PRECISION -->
+  <section class="metric-card">
+    <div class="head">
+      <span class="num">01 · precision@k</span>
+      <h2>Of what you showed, how much was right?</h2>
+    </div>
+    <p class="dek">Only looks inside the top‑k window. Doesn't know or care that 19 other relevant exercises exist outside it.</p>
+    <ol class="ranklist">
+      <li class="hit"><span class="rank">1</span><span class="name">Romanian_Deadlift</span><span class="tag">hit</span></li>
+      <li><span class="rank">2</span><span class="name">Leg_Press</span><span class="tag">—</span></li>
+      <li class="hit"><span class="rank">3</span><span class="name">Good_Morning</span><span class="tag">hit</span></li>
+      <li><span class="rank">4</span><span class="name">Barbell_Hip_Thrust</span><span class="tag">—</span></li>
+      <li class="hit"><span class="rank">5</span><span class="name">Stiff-Legged_Barbell_Deadlift</span><span class="tag">hit</span></li>
+    </ol>
+    <div class="formula-row">
+      <span class="formula">precision@5 = hits in top‑5 ÷ 5</span>
+      <span class="equals">=</span>
+      <span class="formula">3 ÷ 5</span>
+      <span class="equals">=</span>
+      <span class="value">0.60</span>
+    </div>
+    <p class="insight"><b>Rewards:</b> a clean top‑k window. <b>Blind spot:</b> treats a hit at rank 1 and a hit at rank 5 identically, and is silent on everything the corpus has that never made the list.</p>
+  </section>
+
+  <!-- RECALL -->
+  <section class="metric-card">
+    <div class="head">
+      <span class="num">02 · recall@k</span>
+      <h2>Of everything relevant, how much did you surface?</h2>
+    </div>
+    <p class="dek">Same 3 hits, but the denominator is now the full relevant set — all 22 dots below, only 3 filled.</p>
+    <div class="universe" aria-hidden="true">
+      <span class="filled"></span><span class="filled"></span><span class="filled"></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="formula-row">
+      <span class="formula">recall@5 = hits in top‑5 ÷ |relevant|</span>
+      <span class="equals">=</span>
+      <span class="formula">3 ÷ 22</span>
+      <span class="equals">=</span>
+      <span class="value">0.136</span>
+    </div>
+    <p class="insight"><b>Rewards:</b> coverage of the whole relevant set. <b>Blind spot:</b> structurally capped by k — with 22 relevant items and k=5, recall can never exceed 5⁄22 ≈ 0.227, no matter how good the retriever is. A "low" recall@k is often a corpus-size artifact, not a retrieval failure.</p>
+  </section>
+
+  <!-- MAP -->
+  <section class="metric-card">
+    <div class="head">
+      <span class="num">03 · map@k</span>
+      <h2>How good was the ranking, not just the hit count?</h2>
+    </div>
+    <p class="dek">At every hit, take the precision "so far" up to that rank, then average those snapshots. Reordering the same 3 hits changes this score even though precision@5 stays 0.60.</p>
+    <ol class="ranklist">
+      <li class="hit"><span class="rank">1</span><span class="name">Romanian_Deadlift</span><span class="annot">P@1 = 1/1 = 1.00</span></li>
+      <li><span class="rank">2</span><span class="name">Leg_Press</span><span class="tag">—</span></li>
+      <li class="hit"><span class="rank">3</span><span class="name">Good_Morning</span><span class="annot">P@3 = 2/3 = 0.67</span></li>
+      <li><span class="rank">4</span><span class="name">Barbell_Hip_Thrust</span><span class="tag">—</span></li>
+      <li class="hit"><span class="rank">5</span><span class="name">Stiff-Legged_Barbell_Deadlift</span><span class="annot">P@5 = 3/5 = 0.60</span></li>
+    </ol>
+    <div class="formula-row">
+      <span class="formula">AP@5 = (1.00 + 0.67 + 0.60) ÷ min(|relevant|, 5)</span>
+      <span class="equals">=</span>
+      <span class="formula">2.27 ÷ 5</span>
+      <span class="equals">=</span>
+      <span class="value">0.453</span>
+    </div>
+    <p class="insight"><b>Rewards:</b> getting hits early, not just eventually. <b>Blind spot:</b> a hit that arrives at rank 5 still drags the average down even though it's inside the window — MAP punishes "found it late" harder than precision does.</p>
+  </section>
+
+  <!-- NDCG -->
+  <section class="metric-card">
+    <div class="head">
+      <span class="num">04 · ndcg@k</span>
+      <h2>Given what you found, was it ordered well?</h2>
+    </div>
+    <p class="dek">Each rank is worth less than the one before it (weight = 1 ÷ log₂(rank+1)), then the actual ordering is compared against the best possible ordering <em>of these same 3 hits</em> — not against the full relevant set.</p>
+    <ol class="ranklist">
+      <li class="hit"><span class="rank">1</span><span class="name">Romanian_Deadlift</span><span class="weight">weight 1.00</span></li>
+      <li><span class="rank">2</span><span class="name">Leg_Press</span><span class="weight">weight 0.63</span></li>
+      <li class="hit"><span class="rank">3</span><span class="name">Good_Morning</span><span class="weight">weight 0.50</span></li>
+      <li><span class="rank">4</span><span class="name">Barbell_Hip_Thrust</span><span class="weight">weight 0.43</span></li>
+      <li class="hit"><span class="rank">5</span><span class="name">Stiff-Legged_Barbell_Deadlift</span><span class="weight">weight 0.39</span></li>
+    </ol>
+    <div class="formula-row">
+      <span class="formula">DCG = 1.00 + 0.50 + 0.39 = 1.89</span>
+      <span class="equals">·</span>
+      <span class="formula">IDCG (3 hits at ranks 1–3) = 1.00 + 0.63 + 0.50 = 2.13</span>
+    </div>
+    <div class="formula-row">
+      <span class="formula">NDCG@5 = DCG ÷ IDCG</span>
+      <span class="equals">=</span>
+      <span class="formula">1.89 ÷ 2.13</span>
+      <span class="equals">=</span>
+      <span class="value">0.885</span>
+    </div>
+    <p class="insight"><b>Rewards:</b> front-loading the hits you do find — this is why it scores 0.885 even though precision@5 was only 0.60. <b>Blind spot:</b> with binary relevance (hit / no hit, no "more relevant") it plateaus fast; one well-placed hit can already look strong.</p>
+  </section>
+
+  <!-- MRR -->
+  <section class="metric-card">
+    <div class="head">
+      <span class="num">05 · mrr</span>
+      <h2>How fast did the first good answer show up?</h2>
+    </div>
+    <p class="dek">Only rank 1's hit matters here — everything after the first hit is thrown away for this query, which is why it's usually averaged (<b>M</b>RR) across many queries rather than read per-query.</p>
+    <ol class="ranklist">
+      <li class="hit"><span class="rank">1</span><span class="name">Romanian_Deadlift</span><span class="tag">hit</span></li>
+      <li class="dim"><span class="rank">2</span><span class="name">Leg_Press</span><span class="tag">ignored</span></li>
+      <li class="dim"><span class="rank">3</span><span class="name">Good_Morning</span><span class="tag">ignored</span></li>
+      <li class="dim"><span class="rank">4</span><span class="name">Barbell_Hip_Thrust</span><span class="tag">ignored</span></li>
+      <li class="dim"><span class="rank">5</span><span class="name">Stiff-Legged_Barbell_Deadlift</span><span class="tag">ignored</span></li>
+    </ol>
+    <div class="formula-row">
+      <span class="formula">RR = 1 ÷ (rank of first hit) = 1 ÷ 1</span>
+      <span class="equals">=</span>
+      <span class="value">1.00</span>
+    </div>
+    <p class="dek" style="margin-top:2px;">RR is per query. MRR is the mean of RR over the whole eval set — e.g. three queries whose first hit lands at rank 1, 2, and 3:</p>
+    <table class="mrr-table">
+      <tr><th>query</th><th>first hit rank</th><th>RR</th></tr>
+      <tr><td>barbell exercise for hamstrings</td><td>1</td><td>1 / 1 = 1.000</td></tr>
+      <tr><td>plyometrics exercise for adductors</td><td>2</td><td>1 / 2 = 0.500</td></tr>
+      <tr><td>triceps exercise using machine</td><td>3</td><td>1 / 3 = 0.333</td></tr>
+      <tr><td>mean → MRR</td><td>—</td><td>0.611</td></tr>
+    </table>
+    <p class="insight"><b>Rewards:</b> speed to a usable answer — the right metric when a system only ever surfaces one result, e.g. a RAG pipeline's top context. <b>Blind spot:</b> a second and third correct hit right below the first add nothing to the score.</p>
+  </section>
+
+  <div class="summary">
+    <h2 style="margin-bottom:14px;">Same 5 numbers, different questions</h2>
+    <table class="compare">
+      <tr>
+        <th>metric</th><th>order-sensitive?</th><th>needs full relevant count?</th><th>rewards</th><th>watch out for</th>
+      </tr>
+      <tr>
+        <td class="metric">precision@k</td>
+        <td>no</td>
+        <td>no</td>
+        <td>a clean top‑k window</td>
+        <td>identical score whether the hit is at rank 1 or rank k</td>
+      </tr>
+      <tr>
+        <td class="metric">recall@k</td>
+        <td>no</td>
+        <td>yes</td>
+        <td>coverage of the whole relevant set</td>
+        <td>caps at k ÷ |relevant| — large relevant sets can't reach 1.0</td>
+      </tr>
+      <tr>
+        <td class="metric">map@k</td>
+        <td>yes</td>
+        <td>yes (as normalizer)</td>
+        <td>hits arriving early, across all of them</td>
+        <td>a late hit still inside the window is still penalized</td>
+      </tr>
+      <tr>
+        <td class="metric">ndcg@k</td>
+        <td>yes</td>
+        <td>no — normalizes against the best ordering of hits found</td>
+        <td>front-loaded, well-ordered hits</td>
+        <td>binary relevance plateaus fast; can look great on thin evidence</td>
+      </tr>
+      <tr>
+        <td class="metric">mrr</td>
+        <td>only the first hit</td>
+        <td>no</td>
+        <td>speed to one usable result</td>
+        <td>ignores every hit after the first entirely</td>
+      </tr>
+    </table>
+  </div>
+
+  <footer class="note">Formulas match this repo's implementation in <code>src/eval/eval_harness.py</code> (binary relevance, no graded relevance weighting). Numbers above are rounded to 2–3 significant digits.</footer>
+
+</div>
+</body>
+</html>

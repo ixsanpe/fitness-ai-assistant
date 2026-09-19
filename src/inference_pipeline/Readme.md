@@ -33,14 +33,14 @@ python -m src.inference_pipeline --query "bench press" --top_k 10
 Launch the interactive search UI:
 
 ```bash
-python src/inference_pipeline/gradio_app.py
+python -m src.inference_pipeline.gradio_app
 ```
 
 With options:
 
 ```bash
-python src/inference_pipeline/gradio_app.py --config configs/inference.yaml --port 8080
-python src/inference_pipeline/gradio_app.py --share
+python -m src.inference_pipeline.gradio_app --config configs/inference.yaml --port 8080
+python -m src.inference_pipeline.gradio_app --share
 ```
 
 ## Vector Database Setup
@@ -48,7 +48,7 @@ python src/inference_pipeline/gradio_app.py --share
 When using the Milvus Lite backend, the pipeline will attempt to create the collection if initialization fails. You can also build the database explicitly:
 
 ```bash
-python src/inference_pipeline/create_db.py --config configs/inference.yaml
+python src.inference_pipeline.create_db --config configs/inference.yaml
 ```
 
 ## Configuration

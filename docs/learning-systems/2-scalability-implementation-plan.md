@@ -333,8 +333,8 @@ App routes by exercise_id hash → correct shard
 
 ## Related Documentation
 
-- **Scalability notes**: `learning-systems/1-scalability-notes.md`
-- **System design plan**: `learning-systems/0-plan.md` (Week 4: Load Balancing, Week 6: Database, Week 7: Cache)
+- **Scalability notes**: `docs/learning-systems/1-scalability-notes.md`
+- **System design plan**: `docs/learning-systems/0-plan.md` (Week 4: Load Balancing, Week 6: Database, Week 7: Cache)
 - **Config reference**: `configs/QUICK_REFERENCE.md`
 
 ---
