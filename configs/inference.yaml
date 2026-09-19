@@ -29,4 +29,12 @@ vector_db:
   collection_name: "exercises_embeddings"
   vector_field: "vector"
   metric_type: "cosine"
-  output_fields: []
+  output_fields: ["text", "name"]
+
+# RAG generation configuration (local model via Ollama — run `ollama serve`)
+generation:
+  enabled: true
+  model_name: "qwen2.5:7b"
+  base_url: "http://localhost:11434"
+  max_context_chars: 400
+  timeout: 60.0
