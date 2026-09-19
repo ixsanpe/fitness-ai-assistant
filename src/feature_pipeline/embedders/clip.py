@@ -79,7 +79,12 @@ class CLIPEmbedder(BaseEmbedder):
                 image_input = processor(images=[img], return_tensors="pt")  # type: ignore
                 image_input = {k: v.to(self.device) for k, v in image_input.items()}
                 with torch.no_grad():
-                    img_emb = model.get_image_features(**image_input)
+                    img_output = model.get_image_features(**image_input)
+                    # transformers 5.x may return BaseModelOutputWithPooling instead of a tensor
+                    if isinstance(img_output, torch.Tensor):
+                        img_emb = img_output
+                    else:
+                        img_emb = model.visual_projection(img_output.pooler_output)
                 img_embs.append(img_emb.cpu())
             except Exception as e:
                 print(f"Warning: Failed to process image {img_path}: {e}")

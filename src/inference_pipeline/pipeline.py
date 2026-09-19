@@ -4,6 +4,7 @@ from pathlib import Path
 
 from src.config.inference import InferenceConfig
 from src.inference_pipeline.backends import LocalBackend, MilvusBackend
+from src.inference_pipeline.generation import OllamaGenerator
 from src.inference_pipeline.loaders import load_embeddings, load_metadata
 from src.inference_pipeline.models import TextEmbedder
 from src.inference_pipeline.utils import create_vector_db
@@ -37,6 +38,15 @@ class InferencePipeline:
             self._init_milvus_backend(config)
         else:
             raise ValueError(f"Unknown backend: {backend_name}")
+
+        # Initialize generator (optional RAG generation step over retrieved results)
+        self.generator = None
+        if config.generation.enabled:
+            self.generator = OllamaGenerator(
+                model_name=config.generation.model_name,
+                base_url=config.generation.base_url,
+                timeout=config.generation.timeout,
+            )
 
     def _init_local_backend(self, config: InferenceConfig):
         """Initialize local numpy-based search."""
@@ -92,6 +102,27 @@ class InferencePipeline:
         results = self.backend.search(query_vector, top_k=top_k)
 
         return results
+
+    def answer(self, text: str, top_k: int = 5) -> dict:
+        """Retrieve relevant exercises and generate a grounded answer over them.
+
+        Requires `generation.enabled: true` in config (a local Ollama model).
+
+        Args:
+            text: Query text
+            top_k: Number of results to retrieve as context
+
+        Returns:
+            dict with keys: answer (str), sources (list of the retrieved result dicts)
+        """
+        if self.generator is None:
+            raise RuntimeError(
+                "Generation is not enabled — set generation.enabled: true in the config"
+            )
+
+        hits = self.query(text, top_k=top_k)
+        answer_text = self.generator.generate(text, hits)
+        return {"answer": answer_text, "sources": hits}
 
     def close(self):
         """Clean up resources."""

@@ -1,18 +1,27 @@
 import glob
 import json
-import sys
 from pathlib import Path
 
 import gradio as gr
 from PIL import Image, ImageDraw, ImageFont
 
-from src.config.inference import InferenceConfig
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from src.config import load_config
+from src.config.inference import InferenceConfig
 from src.inference_pipeline.pipeline import InferencePipeline
+
+# Cache pipelines by config path — building one opens a Milvus-lite connection that
+# is never truly released (MilvusBackend.close() is a no-op), so rebuilding it on
+# every request causes the next request to fail to open the locked db file and fall
+# back to dropping/recreating the whole collection.
+_pipeline_cache: dict[str, InferencePipeline] = {}
+
+
+def _get_pipeline(config_path: str) -> InferencePipeline:
+    if config_path not in _pipeline_cache:
+        config = load_config("inference", config_path)
+        assert isinstance(config, InferenceConfig), "Config must be an InferenceConfig instance"
+        _pipeline_cache[config_path] = InferencePipeline(config)
+    return _pipeline_cache[config_path]
 
 
 def _load_metadata(metadata_path: Path):
@@ -55,30 +64,42 @@ def run_search(
     query: str,
     top_k: int = 5,
     config_path: str | None = None,
-) -> tuple[list, list]:
-    """Run pipeline query and return (images, captions) suitable for a gradio Gallery.
+    generate_answer: bool = False,
+) -> tuple[list, list, str]:
+    """Run pipeline query and return (images, captions, answer) for the gradio UI.
 
     Returns:
       images: list of PIL.Image or image path
       captions: list of str
+      answer: generated answer text (empty string if generation wasn't requested)
     """
-    # Load config and init pipeline
+    # Load (cached) pipeline
     try:
-        config = load_config("inference", config_path or "configs/inference.yaml")
-        assert isinstance(config, InferenceConfig), "Config must be an InferenceConfig instance"
-        pipe = InferencePipeline(config)
+        resolved_config_path = config_path or "configs/inference.yaml"
+        pipe = _get_pipeline(resolved_config_path)
 
         # Load metadata and get paths from config
-        metadata_path = Path(config.dataset_path)
-        raw_exercises_dir = Path(config.paths.raw_data_dir) / "exercises"
+        metadata_path = Path(pipe.config.dataset_path)
+        raw_exercises_dir = Path(pipe.config.paths.raw_data_dir) / "exercises"
         metadata = _load_metadata(metadata_path)
     except Exception as e:
-        return [], [f"Failed to initialize pipeline: {e}"]
+        return [], [f"Failed to initialize pipeline: {e}"], ""
 
     try:
         res = pipe.query(query, top_k=top_k)
     except Exception as e:
-        return [], [f"Query failed: {e}"]
+        return [], [f"Query failed: {e}"], ""
+
+    answer = ""
+    if generate_answer:
+        if pipe.generator is None:
+            answer = "⚠️ Generation not enabled — set generation.enabled: true in the config."
+        else:
+            try:
+                answer = pipe.generator.generate(query, res)
+            except Exception as e:
+                answer = f"⚠️ Generation failed: {e}"
+
     print(f"Results for query: '{res}'")
     images = []
     captions = []
@@ -173,10 +194,10 @@ def run_search(
         return img
 
     if not images:
-        return [], ["No results"]
+        return [], ["No results"], answer
 
     images_filled = [img if img is not None else make_placeholder() for img in images]
-    return images_filled, captions
+    return images_filled, captions, answer
 
 
 def build_interface(default_config: str | None = None):
@@ -195,21 +216,34 @@ def build_interface(default_config: str | None = None):
                 value=default_config or "",
                 placeholder="configs/inference.yaml or configs/inference_prod.yaml",
             )
+            gen_toggle = gr.Checkbox(
+                label="Generate answer (local Ollama model)",
+                value=False,
+            )
         btn = gr.Button("🔍 Search", variant="primary")
+        answer_box = gr.Textbox(label="Answer", interactive=False, visible=False, lines=4)
         gallery = gr.Gallery(label="Results", elem_id="gallery", columns=3, height="auto")
         output_text = gr.Textbox(label="Info", interactive=False)
 
-        def on_search(q, k, cfg):
+        def on_search(q, k, cfg, gen):
             cfg_path = cfg.strip() if cfg and cfg.strip() else None
-            imgs, captions = run_search(q, int(k), config_path=cfg_path)
+            imgs, captions, answer = run_search(
+                q, int(k), config_path=cfg_path, generate_answer=gen
+            )
             # combine into (image, caption) pairs for Gradio Gallery
             if imgs and isinstance(captions, list):
                 items = list(zip(imgs, captions, strict=False))
-                return items, f"✅ Found {len(items)} results"
+                info = f"✅ Found {len(items)} results"
             else:
-                return [], "\n".join(captions if isinstance(captions, list) else [str(captions)])
+                items = []
+                info = "\n".join(captions if isinstance(captions, list) else [str(captions)])
+            return items, info, gr.update(value=answer, visible=bool(gen))
 
-        btn.click(on_search, inputs=[txt, kn, config_path], outputs=[gallery, output_text])
+        btn.click(
+            on_search,
+            inputs=[txt, kn, config_path, gen_toggle],
+            outputs=[gallery, output_text, answer_box],
+        )
     return demo
 
 
@@ -229,7 +263,7 @@ if __name__ == "__main__":
     app.launch(server_name=args.host, server_port=args.port, share=args.share)
 
 # Usage:
-# python src/inference_pipeline/gradio_app.py
-# python src/inference_pipeline/gradio_app.py --config configs/inference.yaml
-# python src/inference_pipeline/gradio_app.py --config configs/inference_prod.yaml --port 8080
-# python src/inference_pipeline/gradio_app.py --share  # Creates public URL
+# python -m src.inference_pipeline.gradio_app
+# python -m src.inference_pipeline.gradio_app --config configs/inference.yaml
+# python -m src.inference_pipeline.gradio_app --config configs/inference_prod.yaml --port 8080
+# python -m src.inference_pipeline.gradio_app --share  # Creates public URL

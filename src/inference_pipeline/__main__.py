@@ -3,6 +3,7 @@
 Usage:
     python -m src.inference_pipeline --query "push up" --top_k 5
     python -m src.inference_pipeline "sit up" --config configs/inference.yaml
+    python -m src.inference_pipeline --query "what's a good bodyweight leg exercise?" --top_k 5
 """
 
 import argparse
@@ -39,6 +40,11 @@ def main():
             if r.get("combined_text"):
                 text_preview = r["combined_text"][:200].replace("\n", " ")
                 print(f"   {text_preview}...\n")
+
+        if pipeline.generator is not None:
+            print("🤖 Generating answer...")
+            result = pipeline.generator.generate(query_text, results)
+            print(f"\n💬 Answer:\n{result}\n")
 
         pipeline.close()
         print("✅ Pipeline closed successfully\n")
